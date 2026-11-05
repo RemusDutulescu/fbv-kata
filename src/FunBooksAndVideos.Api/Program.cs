@@ -12,6 +12,7 @@ using FunBooksAndVideos.Infrastructure.Temporal;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Metrics;
 using OpenTelemetry.Trace;
 using Scalar.AspNetCore;
 
@@ -22,7 +23,8 @@ builder.Services.AddShopDatabase(builder.Configuration);
 builder.Services.AddTemporal(builder.Configuration);
 builder.Services.AddTelemetry(builder.Configuration, "FunBooksAndVideos.Api")
     // Probes call every few seconds; their traces would be noise, and they'd cost ingestion.
-    .WithTracing(tracing => tracing.AddAspNetCoreInstrumentation(http => http.Filter = context => !context.Request.Path.StartsWithSegments("/health")));
+    .WithTracing(tracing => tracing.AddAspNetCoreInstrumentation(http => http.Filter = context => !context.Request.Path.StartsWithSegments("/health")))
+    .WithMetrics(metrics => metrics.AddAspNetCoreInstrumentation());
 
 // Submissions go to Temporal, where a worker picks them up; reads come straight from SQL.
 builder.Services.AddRequiredOptions<SubmissionOptions>(builder.Configuration, SubmissionOptions.Section);

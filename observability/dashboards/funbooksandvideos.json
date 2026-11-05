@@ -1,0 +1,119 @@
+{
+  "uid": "funbooksandvideos",
+  "title": "FunBooksAndVideos",
+  "description": "Submissions as the API answers them, and the work as the workers do it. docker compose run --rm k6 gives it something to show.",
+  "tags": ["funbooksandvideos"],
+  "schemaVersion": 41,
+  "version": 1,
+  "editable": true,
+  "refresh": "5s",
+  "time": { "from": "now-15m", "to": "now" },
+  "panels": [
+    {
+      "type": "row",
+      "title": "API",
+      "id": 1,
+      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Submissions a minute, by status",
+      "description": "201: accepted, memberships active. 202: stored, activation not confirmed yet. 503: not confirmed at all, so the client resubmits. The API docs list the rest.",
+      "id": 2,
+      "gridPos": { "x": 0, "y": 1, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "60 * sum by (http_response_status_code) (rate(http_server_request_duration_seconds_count{job=\"FunBooksAndVideos.Api\", http_route=\"v1/purchase-orders\", http_request_method=\"POST\"}[1m]))",
+          "legendFormat": "{{http_response_status_code}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Submission latency, p95",
+      "description": "How long a client waits for its answer, which includes BR1's activation.",
+      "id": 3,
+      "gridPos": { "x": 12, "y": 1, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=\"FunBooksAndVideos.Api\", http_route=\"v1/purchase-orders\", http_request_method=\"POST\"}[1m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "row",
+      "title": "Workers",
+      "id": 4,
+      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 },
+      "collapsed": false,
+      "panels": []
+    },
+    {
+      "type": "timeseries",
+      "title": "Activities a second, per worker",
+      "description": "One line per worker replica: docker compose up --scale worker=3 spreads the work across three.",
+      "id": 5,
+      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "sum by (instance) (rate(temporal_activity_execution_latency_milliseconds_count{job=\"FunBooksAndVideos.Worker\"}[1m]))",
+          "legendFormat": "{{instance}}"
+        }
+      ]
+    },
+    {
+      "type": "timeseries",
+      "title": "Waiting for a worker, p95",
+      "description": "How long a workflow task waits in Temporal's queue before a worker picks it up (schedule-to-start). It climbs when the workers fall behind, and reads 10 s at most: the histogram's top bucket. Activities don't wait: Temporal hands each straight to the worker that scheduled it.",
+      "id": 6,
+      "gridPos": { "x": 12, "y": 10, "w": 12, "h": 8 },
+      "datasource": { "type": "prometheus", "uid": "prometheus" },
+      "fieldConfig": { "defaults": { "unit": "ms", "min": 0 }, "overrides": [] },
+      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(temporal_workflow_task_schedule_to_start_latency_milliseconds_bucket{job=\"FunBooksAndVideos.Worker\"}[1m])))",
+          "legendFormat": "p95"
+        }
+      ]
+    },
+    {
+      "type": "table",
+      "title": "Recent submissions",
+      "description": "Each one's trace: the request, its workflow, every activity, rule and SQL statement. Click a trace id to open it.",
+      "id": 7,
+      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 9 },
+      "datasource": { "type": "tempo", "uid": "tempo" },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": { "type": "tempo", "uid": "tempo" },
+          "queryType": "traceql",
+          "query": "{ resource.service.name = \"FunBooksAndVideos.Api\" && span.http.route = \"v1/purchase-orders\" && span.http.request.method = \"POST\" }",
+          "limit": 20,
+          "tableType": "traces"
+        }
+      ]
+    }
+  ]
+}

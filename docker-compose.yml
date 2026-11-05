@@ -1,5 +1,14 @@
 # Local development stack. Every credential here is a laptop-only throwaway:
 # the Azure deployment authenticates with a managed identity and has no SQL password at all.
+
+# What the api and the worker share.
+x-app-environment: &app-environment
+  ConnectionStrings__Shop: "Server=sqlserver,1433;Database=FunBooksAndVideos;User Id=sa;Password=Local_dev_only_1!;TrustServerCertificate=True"
+  Temporal__Address: "temporal:7233"
+  Temporal__Namespace: "default"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "http://lgtm:4317"
+  OTEL_METRIC_EXPORT_INTERVAL: "5000" # every 5 s, not every minute, so the dashboard keeps up
+
 services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-latest
@@ -27,13 +36,16 @@ services:
       timeout: 5s
       retries: 20
 
-  dashboard:
-    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6.2
-    environment:
-      ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+  # Grafana, with Prometheus, Loki and Tempo behind one OTLP endpoint, and the FunBooksAndVideos dashboard.
+  lgtm:
+    image: grafana/otel-lgtm:0.39.0
     ports:
-      - "18888:18888" # traces UI
-      - "4317:18889"  # OTLP gRPC, for the API when it runs from source
+      - "3000:3000"   # Grafana
+      - "4317:4317"   # OTLP gRPC, for the hosts when they run from source
+    volumes:
+      # One more provider beside the image's own; mounting over its folder would hide its data sources.
+      - ./observability/dashboards.yaml:/otel-lgtm/grafana/conf/provisioning/dashboards/funbooksandvideos.yaml:ro
+      - ./observability/dashboards:/otel-lgtm/grafana/conf/provisioning/dashboards/funbooksandvideos:ro
 
   api:
     build:
@@ -42,16 +54,15 @@ services:
     ports:
       - "5080:8080"   # API, with the docs at /scalar/
     environment:
-      ConnectionStrings__Shop: "Server=sqlserver,1433;Database=FunBooksAndVideos;User Id=sa;Password=Local_dev_only_1!;TrustServerCertificate=True"
-      Temporal__Address: "temporal:7233"
-      Temporal__Namespace: "default"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://dashboard:18889"
+      <<: *app-environment
+      # No Temporal Cloud bill to protect locally (ADR 6), so the limit only has to stay out of the load test's way.
+      RateLimiting__SubmissionsPerMinute: "10000"
     depends_on:
       sqlserver:
         condition: service_healthy
       temporal:
         condition: service_healthy
-      dashboard:
+      lgtm:
         condition: service_started
 
   # Scales on its own: docker compose up --scale worker=3.
@@ -59,15 +70,21 @@ services:
     build:
       context: .
       target: worker
-    environment:
-      ConnectionStrings__Shop: "Server=sqlserver,1433;Database=FunBooksAndVideos;User Id=sa;Password=Local_dev_only_1!;TrustServerCertificate=True"
-      Temporal__Address: "temporal:7233"
-      Temporal__Namespace: "default"
-      OTEL_EXPORTER_OTLP_ENDPOINT: "http://dashboard:18889"
+    environment: *app-environment
     depends_on:
       sqlserver:
         condition: service_healthy
       temporal:
         condition: service_healthy
-      dashboard:
+      lgtm:
         condition: service_started
+
+  # Load for the dashboard, run on demand: docker compose run --rm k6.
+  k6:
+    image: grafana/k6:2.3.0
+    profiles: [load]
+    volumes:
+      - ./load:/scripts:ro
+    environment:
+      BASE_URL: "http://api:8080"
+    command: ["run", "/scripts/submissions.js"]

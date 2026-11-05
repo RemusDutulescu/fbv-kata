@@ -1,0 +1,7 @@
+# Grafana provisions every dashboard in the folder mounted beside this file (docker-compose.yml).
+apiVersion: 1
+providers:
+  - name: funbooksandvideos
+    type: file
+    options:
+      path: /otel-lgtm/grafana/conf/provisioning/dashboards/funbooksandvideos
