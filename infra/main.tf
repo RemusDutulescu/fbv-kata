@@ -106,8 +106,11 @@ resource "azurerm_container_app" "api" {
     }
   }
 
+  # SQL must be reachable before the first replica starts and migrates it.
+  depends_on = [azurerm_mssql_firewall_rule.azure_services]
+
   template {
-    # One replica: it hosts the Temporal worker and migrates the database when it starts.
+    # One replica keeps it cheap. The rate limit lives in memory, so each extra replica would allow its own 30 a minute.
     min_replicas = 1
     max_replicas = 1
 
@@ -142,6 +145,13 @@ resource "azurerm_container_app" "api" {
         secret_name = "appinsights-connection-string"
       }
 
+      # Container Apps ends TLS and forwards plain HTTP. Trusting its X-Forwarded-Proto makes the app see https, so
+      # the API docs send "Try it" requests over https instead of being blocked as mixed content.
+      env {
+        name  = "ASPNETCORE_FORWARDEDHEADERS_ENABLED"
+        value = "true"
+      }
+
       # Startup migrates the database before the API listens: allow it a minute before liveness counts.
       startup_probe {
         transport               = "HTTP"
@@ -157,10 +167,12 @@ resource "azurerm_container_app" "api" {
         path      = "/health/live"
       }
 
+      # Readiness opens a SQL connection, which can take longer than the default one second.
       readiness_probe {
         transport = "HTTP"
         port      = 8080
         path      = "/health/ready"
+        timeout   = 5
       }
     }
   }

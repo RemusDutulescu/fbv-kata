@@ -18,7 +18,7 @@ long-lived secrets to leak.
   reach only this namespace. The key is a Container Apps secret.
 - **Application Insights** receives the OpenTelemetry traces.
 - **GitHub Actions** delivers it. Deploy signs in to Azure through OpenID Connect federation, scoped to the main
-  branch and to this resource group, so no Azure secret is stored in GitHub. Actions are pinned by commit, and
+  branch and to the container app, so no Azure secret is stored in GitHub. Actions are pinned by commit, and
   Dependabot keeps the pins current.
 - **Terraform** builds all of it, with the azurerm, azuread and temporalcloud providers.
 

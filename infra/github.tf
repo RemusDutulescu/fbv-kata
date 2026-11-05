@@ -16,9 +16,10 @@ resource "azuread_application_federated_identity_credential" "main_branch" {
   subject        = "repo:${var.github_repository}:ref:refs/heads/main"
 }
 
-# Contributor on this resource group only, which holds nothing but this application.
+# Contributor on the container app only: enough to roll out an image, but not to touch SQL, the firewall or the
+# identities in the resource group.
 resource "azurerm_role_assignment" "deploy" {
-  scope                = azurerm_resource_group.main.id
+  scope                = azurerm_container_app.api.id
   role_definition_name = "Contributor"
   principal_id         = azuread_service_principal.deploy.object_id
 }
