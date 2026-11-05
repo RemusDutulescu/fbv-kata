@@ -74,7 +74,7 @@ an Api project, plus their tests.
   all built by Terraform.
 - No secret in git. GitHub signs in to Azure with OpenID Connect, and the app signs in to SQL with a managed
   identity. The one secret, the Temporal Cloud API key, goes from Terraform straight into Azure. Terraform state is
-  gitignored. The repository gets secret scanning with push protection, Dependabot and CodeQL.
+  gitignored. The repository gets secret scanning with push protection and CodeQL.
 - CI builds and tests every push. After each deployment, the pipeline runs the Postman collection with Newman, so the
   collection is also the smoke test and can't drift from the API.
 - One trace per order, from the request through the workflow and its activities into SQL, with a span per rule: in
