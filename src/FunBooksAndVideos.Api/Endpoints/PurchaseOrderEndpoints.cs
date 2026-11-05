@@ -44,7 +44,9 @@ public static class PurchaseOrderEndpoints
                 return Task.CompletedTask;
             });
 
-        orders.MapGet("/{id}", GetAsync).ProducesProblem(StatusCodes.Status404NotFound);
+        orders.MapGet("/{id}", GetAsync)
+            .ProducesProblem(StatusCodes.Status400BadRequest)
+            .ProducesProblem(StatusCodes.Status404NotFound);
         return v1;
     }
 
@@ -71,6 +73,7 @@ public static class PurchaseOrderEndpoints
     /// <summary>Get a purchase order and where its fulfilment stands.</summary>
     /// <param name="id">The purchase order id.</param>
     /// <response code="200">The order, with its shipping slip once one is generated.</response>
+    /// <response code="400">The id is blank or longer than 64 characters.</response>
     /// <response code="404">No order has this id.</response>
     internal static async Task<Results<Ok<PurchaseOrderResponse>, NotFound>> GetAsync(
         string id, ShopDbContext db, CancellationToken cancellationToken) =>

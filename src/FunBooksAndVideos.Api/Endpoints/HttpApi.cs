@@ -16,8 +16,6 @@ public static class HttpApi
 {
     public const string SubmissionsPolicy = "submissions";
 
-    private const string ReadyTag = "ready";
-
     private const string Description = """
         Submit purchase orders and follow their fulfilment. A membership in an order is active by the time the
         submission answers 201 (BR1); physical products get a shipping slip shortly afterwards (BR2). The order id
@@ -49,7 +47,7 @@ public static class HttpApi
             });
         });
 
-        services.AddHealthChecks().AddCheck<ReadinessCheck>("dependencies", tags: [ReadyTag]);
+        services.AddHealthChecks().AddCheck<ReadinessCheck>("sql");
 
         services.AddOpenApi(openApi => openApi.AddDocumentTransformer((document, _, _) =>
         {
@@ -64,9 +62,9 @@ public static class HttpApi
     {
         app.MapGroup("/v1").MapPurchaseOrders().MapCustomers();
 
-        // Liveness only asks whether the process answers; readiness also needs SQL Server and Temporal.
+        // Liveness only asks whether the process answers; readiness also needs SQL Server.
         app.MapHealthChecks("/health/live", new HealthCheckOptions { Predicate = _ => false });
-        app.MapHealthChecks("/health/ready", new HealthCheckOptions { Predicate = check => check.Tags.Contains(ReadyTag) });
+        app.MapHealthChecks("/health/ready");
 
         // The docs are public in every environment: the deployed demo is there to be tried.
         app.MapOpenApi();
@@ -82,6 +80,8 @@ public static class HttpApi
         json.RespectRequiredConstructorParameters = true;                  // a missing one fails instead of defaulting to 0
         json.RespectNullableAnnotations = true;                            // and so does null where the contract has no '?'
         json.AllowOutOfOrderMetadataProperties = true;                     // "type" may come anywhere: client serializers differ
+        json.NumberHandling = JsonNumberHandling.Strict;                   // "48.50" in quotes is a string, not a total
+        json.AllowDuplicateProperties = false;                             // one value per field, not the last one sent
 
         // A line without "type" would reach the abstract base and fail as NotSupportedException: a 500 for a client's mistake.
         json.TypeInfoResolver = json.TypeInfoResolver?.WithAddedModifier(type =>

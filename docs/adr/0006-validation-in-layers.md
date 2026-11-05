@@ -11,10 +11,17 @@ time. Bad input must be rejected with errors a developer can act on, and never h
 
 Four layers, each catching what the next one can't:
 
-1. **Strict JSON.** Unknown fields, missing or null required fields, missing or unknown item types, and enum numbers
-   are rejected with a 400 that names the JSON path. The contract types declare what is required and what may be
-   null, and the serializer enforces exactly that (`RespectRequiredConstructorParameters`,
-   `RespectNullableAnnotations`), so the OpenAPI document states the same rules the API applies.
+1. **Strict JSON.** A 400 that names the JSON path rejects any of these:
+   - unknown fields;
+   - missing or null required fields;
+   - missing or unknown item types;
+   - enum numbers;
+   - numbers sent as strings;
+   - duplicate keys.
+
+   The contract types declare what is required and what may be null, and the serializer enforces exactly that
+   (`RespectRequiredConstructorParameters`, `RespectNullableAnnotations`), so the OpenAPI document states the same
+   rules the API applies.
 2. **FluentValidation, through [`ValidationFilter<T>`](../../src/FunBooksAndVideos.Api/Validation/ValidationFilter.cs).**
    Values: the id format and length, a total of at least zero with two decimals, 1 to 100 lines, titles of up to 200
    characters. Every error comes back at once, keyed by JSON path (`items[2].title`).

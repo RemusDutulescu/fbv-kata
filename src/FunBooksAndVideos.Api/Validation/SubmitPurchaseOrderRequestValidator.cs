@@ -11,8 +11,9 @@ namespace FunBooksAndVideos.Api.Validation;
 /// </summary>
 public sealed class SubmitPurchaseOrderRequestValidator : AbstractValidator<SubmitPurchaseOrderRequest>
 {
-    // Ids end up in URLs and workflow ids, so they are limited to characters that never need escaping.
-    private const string IdPattern = "^[A-Za-z0-9_-]+$";
+    // Ids end up in URLs, headers and workflow ids, so they are limited to characters that never need escaping.
+    // \z rather than $: in .NET, $ also matches before a final newline, and a newline in a Location header is a 500.
+    private const string IdPattern = @"^[A-Za-z0-9_-]+\z";
     private const string IdMessage = "'{PropertyName}' may contain only letters, digits, '-' and '_'.";
 
     public SubmitPurchaseOrderRequestValidator()

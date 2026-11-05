@@ -10,17 +10,16 @@ public static class CustomerEndpoints
 {
     public static RouteGroupBuilder MapCustomers(this RouteGroupBuilder v1)
     {
-        v1.MapGet("/customers/{id}/memberships", GetMembershipsAsync).WithTags("Customers");
+        v1.MapGet("/customers/{id}/memberships", GetMembershipsAsync)
+            .WithTags("Customers")
+            .ProducesProblem(StatusCodes.Status400BadRequest);
         return v1;
     }
 
     /// <summary>Get the clubs a customer belongs to.</summary>
-    /// <remarks>
-    /// Customer accounts live in the shop; this service knows the memberships it has activated. A customer it has
-    /// never seen belongs to no club, which is an answer rather than a 404.
-    /// </remarks>
     /// <param name="id">The customer id.</param>
-    /// <response code="200">The customer's clubs: none for a customer this service has never seen.</response>
+    /// <response code="200">The customer's clubs. A customer this service has never seen belongs to none: an answer, not a 404.</response>
+    /// <response code="400">The id is blank or longer than 64 characters.</response>
     internal static async Task<Ok<MembershipsResponse>> GetMembershipsAsync(
         string id, ShopDbContext db, CancellationToken cancellationToken)
     {

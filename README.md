@@ -126,8 +126,10 @@ Take the kata's next rule: *a book needs a duplicate packing slip for the royalt
 2. Register it in [ProcessingServiceCollectionExtensions](src/FunBooksAndVideos.Api/Processing/ProcessingServiceCollectionExtensions.cs):
    `services.AddRule<RoyaltySlipRule>();`. It is traced from then on.
 3. It needs a new effect, so add a `GenerateRoyaltySlip` command and a matching `IFulfilment` method. The build then
-   fails until each receiver implements it: the real activities and the workflow's activity proxy. The compiler
-   lists every place to change.
+   fails until each receiver implements it: the real activities and the workflow's activity proxy.
+4. Give the command a JSON name in [DomainJson](src/FunBooksAndVideos.Api/DomainJson.cs), so the workflow can record
+   it. The compiler can't check this step, so [a test](tests/FunBooksAndVideos.Api.Tests/DomainJsonTests.cs) fails
+   until it is done.
 
 The processor, the workflow and the API don't change. A rule that reuses an existing effect is steps 1 and 2 only.
 

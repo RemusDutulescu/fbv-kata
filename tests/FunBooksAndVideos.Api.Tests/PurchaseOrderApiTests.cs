@@ -87,7 +87,7 @@ public sealed class PurchaseOrderApiTests(AppFixture fixture)
     public async Task Invalid_values_are_reported_together_by_field()
     {
         var order = AnOrder();
-        order["id"] = "not an id";
+        order["id"] = "3344656\n";
         order["customerId"] = "";
         order["total"] = -1;
         order["items"]![1]!["title"] = new string('x', 201);
@@ -102,6 +102,8 @@ public sealed class PurchaseOrderApiTests(AppFixture fixture)
     [InlineData("""{"id":"1","customerId":"c","total":1,"items":[{"type":"magazine","title":"Dune"}]}""", "$.items[0]")]
     [InlineData("""{"id":"1","customerId":"c","total":1,"items":[{"type":"book","title":"Dune"}],"colour":"red"}""", "$.colour")]
     [InlineData("""{"id":"1","customerId":"c","items":[{"type":"book","title":"Dune"}]}""", "$")]
+    [InlineData("""{"id":"1","customerId":"c","total":"1","items":[{"type":"book","title":"Dune"}]}""", "$.total")]
+    [InlineData("""{"id":"1","id":"2","customerId":"c","total":1,"items":[{"type":"book","title":"Dune"}]}""", "$.id")]
     [InlineData("""{"id":"1","customerId":"c","total":1,"items":[{"type":"book","title":null}]}""", "$.items[0].title")]
     [InlineData("""{"id":"1","customerId":"c","total":1,"items":[{"type":"membership"}]}""", "$.items[0]")]
     [InlineData("""{"id":"1","customerId":"c","total":1,"items":[{"type":"membership","membership":1}]}""", "$.items[0].membership")]
