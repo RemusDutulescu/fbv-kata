@@ -14,3 +14,10 @@ services:
       timeout: 5s
       retries: 20
       start_period: 10s
+
+  temporal:
+    image: temporalio/temporal:1.10.0
+    command: ["server", "start-dev", "--ip", "0.0.0.0"]
+    ports:
+      - "7233:7233"   # gRPC frontend
+      - "8233:8233"   # Web UI

@@ -4,7 +4,7 @@ using Microsoft.EntityFrameworkCore;
 
 namespace FunBooksAndVideos.Api.Tests;
 
-public sealed class PersistenceTests(SqlServerFixture sql)
+public sealed class PersistenceTests(AppFixture sql)
 {
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 

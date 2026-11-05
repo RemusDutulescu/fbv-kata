@@ -3,6 +3,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.EntityFrameworkCore.Design" PrivateAssets="all" />
     <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Temporalio" />
+    <PackageReference Include="Temporalio.Extensions.Hosting" />
   </ItemGroup>
 
   <ItemGroup>
