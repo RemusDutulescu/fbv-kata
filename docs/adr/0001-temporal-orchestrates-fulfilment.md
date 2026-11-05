@@ -1,6 +1,6 @@
 # 1. Temporal orchestrates fulfilment
 
-Status: accepted, 2026-11-05
+Status: accepted, 2026-11-05. Its hosting is superseded by [ADR 8](0008-a-worker-host-of-its-own-over-three-tiers.md).
 
 ## Context
 
@@ -10,7 +10,7 @@ database blips, or the client retries.
 
 ## Decision
 
-Each order runs as a Temporal workflow, [`PurchaseOrderWorkflow`](../../src/FunBooksAndVideos.Api/Processing/PurchaseOrderWorkflow.cs).
+Each order runs as a Temporal workflow, [`PurchaseOrderWorkflow`](../../src/FunBooksAndVideos.Application/Processing/PurchaseOrderWorkflow.cs).
 Every side effect is an activity: retried with backoff, idempotent, and recorded in the workflow's history.
 
 The rules are evaluated inside the first activity, `AcceptOrder`, and their commands come back as its result.
@@ -19,7 +19,8 @@ changed rule would change what an in-flight order decides on replay, and Tempora
 activity result, the decision is recorded once and replays read it back. A test replays a committed history, so a
 non-deterministic change fails CI rather than production.
 
-The worker is hosted in the API process, so there is one thing to deploy.
+The worker was hosted in the API process, so that there was one thing to deploy, until ADR 8 gave it a host of its
+own.
 
 ## Alternatives
 
@@ -34,4 +35,3 @@ The worker is hosted in the API process, so there is one thing to deploy.
 - Temporal becomes a runtime dependency: Temporal Cloud in Azure, the dev server locally and in tests.
 - Workflow code follows determinism rules, and a change to the workflow's shape needs Temporal's versioning once
   orders are in flight.
-- The worker scales with the API. Split it out when the two need to scale separately.

@@ -109,3 +109,59 @@ vars." That became `2feac86`, checked with the compose stack stopped so that a s
 fall back to it, and by starting the image without its settings, which it refuses.
 
 Last came this folder, written up from the session's record.
+
+## Gate 5
+
+**Asked for** at 12:47: "Let's do a final review pass of the entire thing."
+
+**Proposed** at 13:15, from three independent reviews: of the C# code and tests, of the documents, and of the
+delivery (Terraform, the workflows, Docker and Postman). They found about 30 things, each checked against the code.
+Three changed behaviour:
+
+1. The first deploy would fail at Azure sign-in: GitHub names repositories created after 15 July 2026 differently in
+   its OpenID Connect tokens.
+2. An unreachable or throttling Temporal escaped as a 500, where the contract promises 202 or 503.
+3. An order whose workflow an operator terminated before activation answered 200, "memberships active".
+
+The rest were wording: claims in the README, the ADRs and the API descriptions that the code didn't quite bear out,
+explanations repeated instead of pointed to, and two test comments that promised more than their tests checked.
+
+**Raised by the owner** at 13:15, while the reviews ran: "'The worker runs inside the API process: one deployable.
+Split it out when workers need to scale on their own.' Would like this split to showcase independent load. […] Don't
+think I like that you used the AddPolymorphism modifier way to implement polymorphism. I would have liked an explicit
+strategy pattern that discriminates based on the typeof of the entity. Only Api and Domain projects? Would prefer a
+3-layered architecture project split, this is too crammed by too many code/classes into just 2 projects. How can we
+showcase telemetry when we deploy and run? Can we visualize the data in some kind of APM? […]" And: "Also I think I
+prefer some old-school API controllers that explicitly expose the HTTP API endpoints. In HttpApi it's very hard to
+distinguish anything."
+
+**Asked** at 13:22, and answered at 13:26:
+
+- How should the projects be layered? "Classic 3-tier": Domain, Infrastructure and Application, under the Api and a
+  Worker host.
+- Which explicit polymorphism for the domain's JSON? "A converter per hierarchy." The HTTP contract keeps its
+  attributes, which the OpenAPI document needs.
+- Where should the live demo run? "Homelab, keep Azure as code": the owner's own server, with the Azure Terraform
+  updated but not applied.
+- Which APM? "Tend to say Grafana. […]"
+
+**Proposed** at 13:28, in phases: the restructure (the tiers, the worker host, MVC controllers, the converters, and
+the review's two behaviour fixes), then telemetry in Grafana with a load script, then the worker in Terraform and the
+deploy workflow, then these documents. Hosting on the owner's server comes after, in its own repository.
+
+**The owner's answer** at 13:38: "Confirmed. […] Do the whole thing here on this repo in one go."
+
+| Commit | |
+| --- | --- |
+| `2e79b50` | refactor: three tiers, and a worker host of its own |
+| `0f4607f` | refactor(json): one explicit converter per domain hierarchy |
+| `0686b29` | refactor(api): MVC controllers instead of Minimal APIs |
+| `14784f8` | fix(submission): an outage answers 503 or 202, an operator-stopped order 409 |
+| `1ea533c` | feat(telemetry): metrics and logs beside the traces, in Grafana |
+| `782ff33` | feat(infra): the worker as a second container app |
+
+One part of the proposal didn't survive measurement. It expected one worker to fall behind under load, and three to
+catch up. Locally, the Temporal dev server gives out first, at about 50 orders a second, so more workers spread the
+work without raising the ceiling. The README describes what was measured.
+
+Then the documents caught up.

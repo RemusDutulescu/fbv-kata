@@ -14,8 +14,9 @@ membership flags. The table carries a `rowversion` as an EF shadow property, whi
 
 When two writes overlap, the second `SaveChanges` throws a concurrency exception, its activity fails, and Temporal
 retries it against fresh data, so the union includes both clubs. Two orders that both create the same customer
-collide on the primary key and recover the same way. A test races two such orders and asserts that the customer ends
-up Premium.
+collide on the primary key and recover the same way. A test submits two such orders at once and asserts that the
+customer ends up Premium, though nothing forces their writes to overlap; another makes two writes to one customer
+conflict on the row version.
 
 ## Alternatives
 

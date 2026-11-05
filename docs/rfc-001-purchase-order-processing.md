@@ -13,7 +13,10 @@ as a record of the reasoning; where it and the code disagree, **the code is righ
 | Strict JSON rejects unknown types and fields | It also rejects missing or null required fields, enum numbers, numbers sent as strings and duplicate keys ([ADR 6](adr/0006-validation-in-layers.md)). |
 | Options checked by `ValidateOnStart`, with defaults in code (plan) | `AddRequiredOptions`: a missing section or value stops the app at startup, and the values live in appsettings. Changed at gate 4. |
 | Pattern names (plan): "orchestrated saga", Visitor "not used", Liskov substitution | A process manager, Visitor-style double dispatch, and polymorphism without type checks. Changed at gate 4. |
-| The deploy identity is Contributor on the resource group (plan) | Contributor on the container app only. Changed at gate 4. |
+| The deploy identity is Contributor on the resource group (plan) | Contributor on the container apps only. Changed at gate 4. |
+| Minimal APIs, in an Api project that also hosts the worker | MVC controllers, each action declaring its route, rate limit, validation and every status it answers. The worker is a host of its own, over three tiers. Changed at gate 5 ([ADR 8](adr/0008-a-worker-host-of-its-own-over-three-tiers.md)). |
+| Traces in the Aspire dashboard locally | Traces, metrics and logs in Grafana (`grafana/otel-lgtm`), with a provisioned dashboard and a k6 load script. Changed at gate 5. |
+| CodeQL, and CI on every push | CodeQL isn't set up: deploy step 1 in the README turns on its default setup after the first push. CI runs on `main` and on pull requests. |
 
 **Author:** Claude (with Remus Dutulescu)
 **Date:** 2026-11-04
