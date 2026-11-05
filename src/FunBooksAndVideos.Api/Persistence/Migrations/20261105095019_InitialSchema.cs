@@ -15,7 +15,7 @@ namespace FunBooksAndVideos.Api.Persistence.Migrations
                 name: "Customers",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
+                    Id = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false, collation: "Latin1_General_100_BIN2"),
                     Memberships = table.Column<int>(type: "int", nullable: false),
                     RowVersion = table.Column<byte[]>(type: "rowversion", rowVersion: true, nullable: true)
                 },
@@ -28,11 +28,10 @@ namespace FunBooksAndVideos.Api.Persistence.Migrations
                 name: "PurchaseOrders",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
-                    CustomerId = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
+                    Id = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false, collation: "Latin1_General_100_BIN2"),
+                    CustomerId = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false, collation: "Latin1_General_100_BIN2"),
                     Total = table.Column<decimal>(type: "decimal(18,2)", precision: 18, scale: 2, nullable: false),
                     Lines = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    PayloadHash = table.Column<string>(type: "char(64)", unicode: false, fixedLength: true, maxLength: 64, nullable: false),
                     Status = table.Column<string>(type: "varchar(16)", unicode: false, maxLength: 16, nullable: false),
                     AcceptedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
                 },
@@ -45,8 +44,8 @@ namespace FunBooksAndVideos.Api.Persistence.Migrations
                 name: "ShippingSlips",
                 columns: table => new
                 {
-                    PurchaseOrderId = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
-                    CustomerId = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false),
+                    PurchaseOrderId = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false, collation: "Latin1_General_100_BIN2"),
+                    CustomerId = table.Column<string>(type: "nvarchar(64)", maxLength: 64, nullable: false, collation: "Latin1_General_100_BIN2"),
                     Items = table.Column<string>(type: "nvarchar(max)", nullable: false),
                     GeneratedAt = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: false)
                 },

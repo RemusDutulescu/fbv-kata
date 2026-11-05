@@ -16,8 +16,14 @@ completes once the workflow has run the commands marked `Immediate`, which is BR
 
 The rule that emits a command decides its timing, so the workflow never needs to know which rule wants what.
 
-If the acknowledgement takes longer than `Temporal:AcknowledgementTimeout` (10 seconds), the API answers 202 with a
-Location to poll. The workflow carries on either way.
+If the acknowledgement takes longer than `Temporal:AcknowledgementTimeout` (10 seconds), the stored order decides:
+
+- **Stored:** 202 with a Location to poll. The workflow carries on.
+- **Not stored yet:** 503. The API can't tell whether Temporal received the order at all, so it doesn't claim to have
+  accepted it, and resubmitting is safe.
+
+A retry of an order that is still in progress joins its workflow and waits in the same way. So a 200 for a retry also
+means the memberships are active.
 
 ## Alternatives
 
@@ -31,5 +37,5 @@ Location to poll. The workflow carries on either way.
 
 - A submission's latency includes storing the order and activating the membership: tens of milliseconds locally.
 - Which commands are immediate is a business decision made in one place, the rule.
-- The 202 mapping is unit tested, and the slow acknowledgement is tested at the workflow level against scripted
+- The 202 and 503 mappings are unit tested. Each timeout case is tested at the workflow level against scripted
   activities.

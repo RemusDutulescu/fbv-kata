@@ -1,5 +1,7 @@
 using FunBooksAndVideos.Domain;
 using FunBooksAndVideos.Domain.Fulfilment;
+using Temporalio.Api.Enums.V1;
+using Temporalio.Client;
 using Temporalio.Common;
 using Temporalio.Workflows;
 
@@ -17,6 +19,13 @@ public sealed class PurchaseOrderWorkflow
     private bool _acknowledged;
 
     public static string IdFor(PurchaseOrderId id) => $"purchase-order-{id.Value}";
+
+    /// <summary>A concurrent duplicate joins the running workflow; a finished one is never started again.</summary>
+    public static WorkflowOptions StartOptions(PurchaseOrderId id, string taskQueue) => new(IdFor(id), taskQueue)
+    {
+        IdConflictPolicy = WorkflowIdConflictPolicy.UseExisting,
+        IdReusePolicy = WorkflowIdReusePolicy.RejectDuplicate,
+    };
 
     [WorkflowRun]
     public async Task RunAsync(OrderSubmission submission)

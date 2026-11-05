@@ -5,6 +5,7 @@ using System.Text.Json.Nodes;
 using FunBooksAndVideos.Api.Endpoints;
 using FunBooksAndVideos.Api.Processing;
 using FunBooksAndVideos.Domain;
+using Microsoft.AspNetCore.Http;
 using Microsoft.AspNetCore.Http.HttpResults;
 
 namespace FunBooksAndVideos.Api.Tests;
@@ -146,12 +147,20 @@ public sealed class PurchaseOrderApiTests(AppFixture fixture)
     }
 
     [Fact]
+    public void An_unconfirmed_submission_answers_503_so_the_client_resubmits()
+    {
+        var result = PurchaseOrderEndpoints.Respond(SubmissionOutcome.Unconfirmed, new PurchaseOrderId("3344656"), stored: null);
+
+        Assert.Equal(StatusCodes.Status503ServiceUnavailable, Assert.IsType<ProblemHttpResult>(result.Result).StatusCode);
+    }
+
+    [Fact]
     public async Task The_api_document_lists_every_submission_outcome()
     {
         var document = await _http.GetFromJsonAsync<JsonObject>("/openapi/v1.json", Ct);
 
         var responses = document!["paths"]![Orders]!["post"]!["responses"]!.AsObject();
-        Assert.Equal(["200", "201", "202", "400", "409", "429"], responses.Select(response => response.Key).Order());
+        Assert.Equal(["200", "201", "202", "400", "409", "429", "503"], responses.Select(response => response.Key).Order());
     }
 
     [Theory]

@@ -63,7 +63,7 @@ public sealed class PersistenceTests(AppFixture sql)
 
         await using (var db = sql.CreateDbContext())
         {
-            db.PurchaseOrders.Add(PurchaseOrderRecord.Accept(order, new string('0', 64), DateTimeOffset.UtcNow));
+            db.PurchaseOrders.Add(PurchaseOrderRecord.Accept(order, DateTimeOffset.UtcNow));
             await db.SaveChangesAsync(Ct);
         }
 
@@ -73,6 +73,22 @@ public sealed class PersistenceTests(AppFixture sql)
         Assert.Equal(lines, stored.Lines);
         Assert.Equal(new Money(48.50m), stored.Total);
         Assert.Equal(PurchaseOrderStatus.Processing, stored.Status);
+    }
+
+    [Fact]
+    public async Task Ids_are_case_sensitive_as_in_temporal()
+    {
+        var id = NewId();
+        await using (var db = sql.CreateDbContext())
+        {
+            db.Customers.Add(new Customer(new CustomerId(id)));
+            await db.SaveChangesAsync(Ct);
+        }
+
+        await using var read = sql.CreateDbContext();
+        var upperCase = new CustomerId(id.ToUpperInvariant());
+
+        Assert.False(await read.Customers.AnyAsync(c => c.Id == upperCase, Ct));
     }
 
     private static string NewId() => Guid.NewGuid().ToString("N");

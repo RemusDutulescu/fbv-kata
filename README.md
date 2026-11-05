@@ -4,7 +4,7 @@ A purchase order processor for an online shop that sells books, videos and club 
 Code Kata 16 (Business Rules). Each business rule is a small class that decides what an order needs, and a Temporal
 workflow carries the decisions out durably.
 
-- **BR1**: a membership in an order is active by the time the submission answers.
+- **BR1**: a membership in an order is active by the time the submission is confirmed (201, or 200 for a retry).
 - **BR2**: physical products get a shipping slip.
 
 The brief shows some of the rules, not all of them, so the design is judged by how cheaply and safely the next rule
@@ -94,7 +94,7 @@ sequenceDiagram
 
 | Endpoint | Answers |
 | --- | --- |
-| `POST /v1/purchase-orders` | **201** accepted, memberships already active. **200** the same order was submitted before (a retry). **202** accepted, but activation took longer than 10 s: poll the Location. **400** invalid, nothing processed. **409** the id belongs to a different order. **429** too many submissions. |
+| `POST /v1/purchase-orders` | **201** accepted, memberships already active. **200** the same order was submitted before (a retry), memberships active. **202** accepted, but activation is taking longer than 10 s: poll the Location, or resubmit. **400** invalid, nothing processed. **409** the id belongs to a different order. **429** too many submissions. **503** not confirmed within 10 s and not stored yet: resubmit, which is safe. |
 | `GET /v1/purchase-orders/{id}` | **200** the order, its status and, once generated, its shipping slip. **404** no such order. |
 | `GET /v1/customers/{id}/memberships` | **200** the customer's clubs (none for a customer this service has never seen). |
 
@@ -142,7 +142,7 @@ Each one is here because it solves a problem this code has.
 | Proxy | [`ActivityFulfilment`](src/FunBooksAndVideos.Api/Processing/ActivityFulfilment.cs) | The receiver's interface, with each call made a durable, retried activity |
 | Decorator | [`TracedRule`](src/FunBooksAndVideos.Api/Observability/TracedRule.cs) | Every rule evaluation is a span, and the rules know nothing about tracing |
 | Process manager (orchestrated saga) | [`PurchaseOrderWorkflow`](src/FunBooksAndVideos.Api/Processing/PurchaseOrderWorkflow.cs) | A durable, multi-step process with forward recovery |
-| Idempotent receiver | [`OrderSubmitter`](src/FunBooksAndVideos.Api/Processing/OrderSubmitter.cs): stored hash, workflow id, primary keys | A retry never activates or ships twice |
+| Idempotent receiver | [`OrderSubmitter`](src/FunBooksAndVideos.Api/Processing/OrderSubmitter.cs): the stored order, the workflow and update ids, primary keys | A retry never activates or ships twice |
 | Result | [`SubmissionOutcome`](src/FunBooksAndVideos.Api/Processing/SubmissionOutcome.cs), mapped by [`Respond`](src/FunBooksAndVideos.Api/Endpoints/PurchaseOrderEndpoints.cs) | Expected outcomes are values, not exceptions, each with one status code |
 | Aggregate | [`PurchaseOrder`](src/FunBooksAndVideos.Domain/PurchaseOrder.cs), [`Customer`](src/FunBooksAndVideos.Domain/Customer.cs) | Invariants live in one place: an invalid order can't be constructed |
 | Value object | [`PurchaseOrderId`, `CustomerId`](src/FunBooksAndVideos.Domain/Identifiers.cs), [`Money`](src/FunBooksAndVideos.Domain/Money.cs), [`MembershipType`](src/FunBooksAndVideos.Domain/MembershipType.cs) | Ids can't be swapped, money is never a bare decimal, and Premium is literally both clubs |

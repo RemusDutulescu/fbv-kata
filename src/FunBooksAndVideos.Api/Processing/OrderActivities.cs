@@ -20,7 +20,7 @@ public sealed class OrderActivities(ShopDbContext db, PurchaseOrderProcessor pro
         // Idempotent: a retry after the insert committed finds the order and moves on.
         if (!await db.PurchaseOrders.AnyAsync(o => o.Id == order.Id, cancellationToken))
         {
-            db.PurchaseOrders.Add(PurchaseOrderRecord.Accept(order, submission.PayloadHash, DateTimeOffset.UtcNow));
+            db.PurchaseOrders.Add(PurchaseOrderRecord.Accept(order, DateTimeOffset.UtcNow));
             await db.SaveChangesAsync(cancellationToken);
         }
 

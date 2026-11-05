@@ -2,69 +2,60 @@ using FunBooksAndVideos.Api.Persistence;
 using FunBooksAndVideos.Domain;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.Options;
-using Temporalio.Api.Enums.V1;
 using Temporalio.Client;
 using Temporalio.Exceptions;
 
 namespace FunBooksAndVideos.Api.Processing;
 
-/// <summary>
-/// Hands an order to its workflow. The order id is the idempotency key at three levels: a stored order answers
-/// a retry straight from SQL, the workflow id stops a second workflow from starting, and the primary key backs both.
-/// </summary>
+/// <summary>Hands an order to its workflow. The order id is the idempotency key (ADR 3).</summary>
 public sealed class OrderSubmitter(ITemporalClient temporal, ShopDbContext db, IOptions<TemporalOptions> options)
 {
     public async Task<SubmissionOutcome> SubmitAsync(PurchaseOrder order, CancellationToken cancellationToken)
     {
-        var submission = OrderSubmission.From(order);
+        // A fulfilled order answers a retry straight from SQL. A retry of one still in progress goes on to join its
+        // workflow, so it too hears back only once the memberships are active.
+        var stored = await StoredAsync(order.Id, cancellationToken);
+        if (stored is not null && !stored.IsSameOrderAs(order)) return SubmissionOutcome.Conflict;
+        if (stored is { Status: PurchaseOrderStatus.Completed }) return SubmissionOutcome.Replayed;
 
-        var storedHash = await StoredHashAsync(order.Id, cancellationToken);
-        if (storedHash is not null)
-        {
-            return storedHash == submission.PayloadHash ? SubmissionOutcome.Replayed : SubmissionOutcome.Conflict;
-        }
-
-        var start = WithStartWorkflowOperation.Create(
-            (PurchaseOrderWorkflow workflow) => workflow.RunAsync(submission),
-            new WorkflowOptions(PurchaseOrderWorkflow.IdFor(order.Id), options.Value.TaskQueue)
-            {
-                // A concurrent duplicate joins the running workflow; a finished one is never started again.
-                IdConflictPolicy = WorkflowIdConflictPolicy.UseExisting,
-                IdReusePolicy = WorkflowIdReusePolicy.RejectDuplicate,
-            });
-
+        var outcome = stored is null ? SubmissionOutcome.Created : SubmissionOutcome.Replayed;
         try
         {
-            // Update-with-Start: one call starts the workflow and waits for its Submit update, which completes once
-            // the Immediate commands (BR1) have run. The update id gives a duplicate call the same answer.
+            // Update-with-Start: one call starts the workflow, or joins it, and waits for its Submit update, which
+            // completes once the Immediate commands (BR1) have run. The update id comes from the order id, so for a
+            // workflow that has already finished, Temporal answers with that update's original result.
             await temporal.ExecuteUpdateWithStartWorkflowAsync(
                 (PurchaseOrderWorkflow workflow) => workflow.SubmitAsync(),
-                new WorkflowUpdateWithStartOptions($"submit-{order.Id}", start)
+                new WorkflowUpdateWithStartOptions(
+                    $"submit-{order.Id}",
+                    WithStartWorkflowOperation.Create(
+                        (PurchaseOrderWorkflow workflow) => workflow.RunAsync(OrderSubmission.From(order)),
+                        PurchaseOrderWorkflow.StartOptions(order.Id, options.Value.TaskQueue)))
                 {
                     Rpc = new() { Timeout = options.Value.AcknowledgementTimeout, CancellationToken = cancellationToken },
                 });
         }
         catch (RpcTimeoutOrCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
-            // Slower than promised. The workflow carries on regardless, so tell the caller where to look.
-            return SubmissionOutcome.Pending;
+            // Slower than promised. Whatever Temporal received carries on regardless.
+            outcome = SubmissionOutcome.Pending;
         }
         catch (WorkflowAlreadyStartedException)
         {
-            // A finished workflow already used this id but its order isn't stored (a wiped database): the id is spent.
-            return SubmissionOutcome.Conflict;
+            // Its workflow ended without acknowledging (terminated by an operator, say) and won't run again.
+            outcome = SubmissionOutcome.Replayed;
         }
 
-        storedHash = await StoredHashAsync(order.Id, cancellationToken)
-            ?? throw new InvalidOperationException($"Order {order.Id} was acknowledged but is not stored.");
-
-        // A concurrent submission with the same id but different content may have started the workflow first.
-        return storedHash == submission.PayloadHash ? SubmissionOutcome.Created : SubmissionOutcome.Conflict;
+        // Whatever Temporal said, the stored order says whose id this is.
+        return (await StoredAsync(order.Id, cancellationToken), outcome) switch
+        {
+            ({ } first, _) when !first.IsSameOrderAs(order) => SubmissionOutcome.Conflict, // a different order got there first
+            (null, SubmissionOutcome.Pending) => SubmissionOutcome.Unconfirmed,            // not even stored: nothing is known
+            (null, _) => SubmissionOutcome.Conflict,                                       // its workflow ran, its order is gone
+            _ => outcome,
+        };
     }
 
-    private Task<string?> StoredHashAsync(PurchaseOrderId id, CancellationToken cancellationToken) =>
-        db.PurchaseOrders
-            .Where(o => o.Id == id)
-            .Select(o => o.PayloadHash)
-            .FirstOrDefaultAsync(cancellationToken);
+    private Task<PurchaseOrderRecord?> StoredAsync(PurchaseOrderId id, CancellationToken cancellationToken) =>
+        db.PurchaseOrders.AsNoTracking().SingleOrDefaultAsync(o => o.Id == id, cancellationToken);
 }

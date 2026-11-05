@@ -12,10 +12,7 @@ public enum PurchaseOrderStatus
     Completed,
 }
 
-/// <summary>
-/// An accepted order as stored: the order plus where its fulfilment stands. The workflow writes it and the
-/// API reads it. A domain <see cref="PurchaseOrder"/> never changes once accepted, so a record is all it needs.
-/// </summary>
+/// <summary>An accepted order as stored: the order plus where its fulfilment stands. The workflow writes it; the API reads it.</summary>
 public sealed class PurchaseOrderRecord
 {
     public required PurchaseOrderId Id { get; init; }
@@ -26,23 +23,23 @@ public sealed class PurchaseOrderRecord
 
     public required IReadOnlyList<ItemLine> Lines { get; init; }
 
-    /// <summary>SHA-256 of the submitted order: the same hash means a retry, a different one means a conflicting reuse of the id.</summary>
-    public required string PayloadHash { get; init; }
-
     public PurchaseOrderStatus Status { get; set; }
 
     public DateTimeOffset AcceptedAt { get; init; }
 
-    public static PurchaseOrderRecord Accept(PurchaseOrder order, string payloadHash, DateTimeOffset acceptedAt) => new()
+    public static PurchaseOrderRecord Accept(PurchaseOrder order, DateTimeOffset acceptedAt) => new()
     {
         Id = order.Id,
         CustomerId = order.CustomerId,
         Total = order.Total,
         Lines = order.Lines,
-        PayloadHash = payloadHash,
         Status = PurchaseOrderStatus.Processing,
         AcceptedAt = acceptedAt,
     };
+
+    /// <summary>A submission of this same order is a retry; anything else under its id is a different order. Compared by value.</summary>
+    public bool IsSameOrderAs(PurchaseOrder order) =>
+        CustomerId == order.CustomerId && Total == order.Total && Lines.SequenceEqual(order.Lines);
 }
 
 /// <summary>A generated shipping slip (BR2): one per order, keyed by the order id.</summary>

@@ -1,4 +1,6 @@
+using FunBooksAndVideos.Api.Persistence;
 using FunBooksAndVideos.Api.Processing;
+using FunBooksAndVideos.Domain;
 using Microsoft.Extensions.Options;
 using static FunBooksAndVideos.Api.Tests.WorkflowTesting;
 
@@ -48,24 +50,78 @@ public sealed class PurchaseOrderWorkflowTests(AppFixture fixture)
         });
     }
 
-    [Fact]
-    public async Task A_slow_acknowledgement_is_reported_as_pending()
+    [Theory]
+    [InlineData(true, SubmissionOutcome.Pending)]
+    [InlineData(false, SubmissionOutcome.Unconfirmed)]
+    public async Task A_slow_acknowledgement_is_pending_only_once_the_order_is_stored(bool stored, SubmissionOutcome expected)
     {
         var activities = new ScriptedActivities(Activation());
 
         await RunWorkerAsync(fixture.Temporal, activities, async taskQueue =>
         {
-            await using var db = fixture.CreateDbContext();
-            var options = Options.Create(new TemporalOptions { TaskQueue = taskQueue, AcknowledgementTimeout = TimeSpan.FromSeconds(1) });
             var order = NewOrder();
+            if (stored) await StoreAsync(order);
 
             // The activation gate stays shut, so BR1's work can't finish within the second the caller waits.
-            var outcome = await new OrderSubmitter(fixture.Temporal, db, options).SubmitAsync(order, TestContext.Current.CancellationToken);
-
-            Assert.Equal(SubmissionOutcome.Pending, outcome);
+            Assert.Equal(expected, await SubmitThroughOrderSubmitterAsync(order, taskQueue, TimeSpan.FromSeconds(1)));
 
             activities.ActivationGate.SetResult();
             await fixture.Temporal.GetWorkflowHandle(PurchaseOrderWorkflow.IdFor(order.Id)).GetResultAsync();
         });
+    }
+
+    [Theory]
+    [InlineData(true, SubmissionOutcome.Replayed)]
+    [InlineData(false, SubmissionOutcome.Conflict)]
+    public async Task Once_the_workflow_has_finished_the_stored_order_decides(bool stored, SubmissionOutcome expected)
+    {
+        var activities = new ScriptedActivities(Activation());
+        activities.ActivationGate.SetResult();
+
+        await RunWorkerAsync(fixture.Temporal, activities, async taskQueue =>
+        {
+            var order = NewOrder();
+            await (await SubmitAsync(fixture.Temporal, OrderSubmission.From(order), taskQueue)).GetResultAsync();
+
+            // Temporal answers with the Submit update's original result. Stored and still processing: a retry that passed
+            // the SQL check before the original stored its order. Not stored: the database was wiped, so the id is spent.
+            if (stored) await StoreAsync(order);
+
+            Assert.Equal(expected, await SubmitThroughOrderSubmitterAsync(order, taskQueue, TimeSpan.FromSeconds(10)));
+        });
+    }
+
+    [Fact]
+    public async Task A_workflow_that_ended_without_acknowledging_is_never_run_again()
+    {
+        var activities = new ScriptedActivities(Activation());
+
+        await RunWorkerAsync(fixture.Temporal, activities, async taskQueue =>
+        {
+            var order = NewOrder();
+            var handle = await fixture.Temporal.StartWorkflowAsync(
+                (PurchaseOrderWorkflow workflow) => workflow.RunAsync(OrderSubmission.From(order)),
+                PurchaseOrderWorkflow.StartOptions(order.Id, taskQueue));
+            await handle.TerminateAsync();
+
+            // Run again, it would stall at the shut activation gate and time out instead. Its order was never stored,
+            // so the id is spent.
+            Assert.Equal(SubmissionOutcome.Conflict, await SubmitThroughOrderSubmitterAsync(order, taskQueue, TimeSpan.FromSeconds(2)));
+        });
+    }
+
+    /// <summary>Stores the order as AcceptOrder would. The scripted activities store nothing themselves.</summary>
+    private async Task StoreAsync(PurchaseOrder order)
+    {
+        await using var db = fixture.CreateDbContext();
+        db.PurchaseOrders.Add(PurchaseOrderRecord.Accept(order, DateTimeOffset.UtcNow));
+        await db.SaveChangesAsync(TestContext.Current.CancellationToken);
+    }
+
+    private async Task<SubmissionOutcome> SubmitThroughOrderSubmitterAsync(PurchaseOrder order, string taskQueue, TimeSpan timeout)
+    {
+        await using var db = fixture.CreateDbContext();
+        var options = Options.Create(new TemporalOptions { TaskQueue = taskQueue, AcknowledgementTimeout = timeout });
+        return await new OrderSubmitter(fixture.Temporal, db, options).SubmitAsync(order, TestContext.Current.CancellationToken);
     }
 }

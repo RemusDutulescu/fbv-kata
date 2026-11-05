@@ -1,7 +1,6 @@
 using FunBooksAndVideos.Api.Processing;
 using FunBooksAndVideos.Domain;
 using FunBooksAndVideos.Domain.Fulfilment;
-using Temporalio.Api.Enums.V1;
 using Temporalio.Client;
 using Temporalio.Worker;
 
@@ -34,15 +33,12 @@ internal static class WorkflowTesting
         await worker.ExecuteAsync(() => test(taskQueue), TestContext.Current.CancellationToken);
     }
 
-    /// <summary>Starts the workflow and waits for its Submit update in one call, the way <see cref="OrderSubmitter"/> does.</summary>
+    /// <summary>Starts the workflow and waits for its Submit update in one call, with the options <see cref="OrderSubmitter"/> uses.</summary>
     public static async Task<WorkflowHandle<PurchaseOrderWorkflow>> SubmitAsync(ITemporalClient client, OrderSubmission submission, string taskQueue)
     {
         var start = WithStartWorkflowOperation.Create(
             (PurchaseOrderWorkflow workflow) => workflow.RunAsync(submission),
-            new WorkflowOptions(PurchaseOrderWorkflow.IdFor(submission.Id), taskQueue)
-            {
-                IdConflictPolicy = WorkflowIdConflictPolicy.UseExisting,
-            });
+            PurchaseOrderWorkflow.StartOptions(submission.Id, taskQueue));
 
         await client.ExecuteUpdateWithStartWorkflowAsync(
             (PurchaseOrderWorkflow workflow) => workflow.SubmitAsync(),

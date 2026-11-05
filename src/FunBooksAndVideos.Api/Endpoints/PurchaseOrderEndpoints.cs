@@ -36,6 +36,7 @@ public static class PurchaseOrderEndpoints
             .ProducesValidationProblem()
             .ProducesProblem(StatusCodes.Status409Conflict)
             .ProducesProblem(StatusCodes.Status429TooManyRequests)
+            .ProducesProblem(StatusCodes.Status503ServiceUnavailable)
             .AddOpenApiOperationTransformer((operation, _, _) =>
             {
                 if (operation.RequestBody?.Content?.TryGetValue("application/json", out var body) == true)
@@ -49,15 +50,16 @@ public static class PurchaseOrderEndpoints
 
     /// <summary>Submit a purchase order.</summary>
     /// <remarks>
-    /// Memberships in the order are active by the time this answers 201 (BR1). Physical products get a shipping slip
-    /// shortly afterwards (BR2): it appears on the order. The order id is the idempotency key, so retrying is always safe.
+    /// Memberships in the order are active by the time this answers 201 or 200 (BR1). Physical products get a shipping
+    /// slip shortly afterwards (BR2): it appears on the order. The order id is the idempotency key, so retrying is always safe.
     /// </remarks>
     /// <response code="201">Accepted, and its memberships are already active.</response>
-    /// <response code="200">This exact order was submitted before (a retry). The body is the order as it stands now.</response>
-    /// <response code="202">Accepted, but activation is taking longer than usual. Poll the Location.</response>
+    /// <response code="200">This exact order was submitted before (a retry), and its memberships are active. The body is the order as it stands now.</response>
+    /// <response code="202">Accepted, but activation is taking longer than usual. Poll the Location, or resubmit: both are safe.</response>
     /// <response code="400">The order is invalid. Nothing was processed.</response>
     /// <response code="409">The id belongs to a different order.</response>
     /// <response code="429">Too many submissions. Retry in a minute.</response>
+    /// <response code="503">Not confirmed in time, so it is unknown whether the order was received. Resubmit it: that is safe.</response>
     internal static async Task<Results<Created<PurchaseOrderResponse>, Ok<PurchaseOrderResponse>, Accepted, ProblemHttpResult>> SubmitAsync(
         SubmitPurchaseOrderRequest request, OrderSubmitter submitter, ShopDbContext db, CancellationToken cancellationToken)
     {
@@ -76,7 +78,7 @@ public static class PurchaseOrderEndpoints
             ? TypedResults.Ok(order)
             : TypedResults.NotFound();
 
-    /// <summary>One status per outcome. Pure, so an outcome that is hard to provoke end to end (202) is unit tested.</summary>
+    /// <summary>One status per outcome. Pure, so the outcomes that are hard to provoke end to end (202, 503) are unit tested.</summary>
     public static Results<Created<PurchaseOrderResponse>, Ok<PurchaseOrderResponse>, Accepted, ProblemHttpResult> Respond(
         SubmissionOutcome outcome, PurchaseOrderId id, PurchaseOrderResponse? stored) => (outcome, stored) switch
     {
@@ -88,6 +90,10 @@ public static class PurchaseOrderEndpoints
         (SubmissionOutcome.Conflict, _) => TypedResults.Problem(
             statusCode: StatusCodes.Status409Conflict,
             detail: $"Purchase order {id} was already submitted with different contents."),
+
+        (SubmissionOutcome.Unconfirmed, _) => TypedResults.Problem(
+            statusCode: StatusCodes.Status503ServiceUnavailable,
+            detail: $"Purchase order {id} could not be confirmed in time. Resubmitting it is safe."),
 
         _ => throw new UnreachableException($"{outcome} has no stored order."),
     };

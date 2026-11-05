@@ -13,6 +13,10 @@ namespace FunBooksAndVideos.Api.Persistence;
 /// </summary>
 public sealed class ShopDbContext(DbContextOptions<ShopDbContext> options) : DbContext(options)
 {
+    // SQL Server compares text case-insensitively by default, but Temporal's workflow ids are case-sensitive:
+    // "ABC" and "abc" must be two orders in both, or two workflows would share one row.
+    private const string CaseSensitive = "Latin1_General_100_BIN2";
+
     public DbSet<Customer> Customers => Set<Customer>();
 
     public DbSet<PurchaseOrderRecord> PurchaseOrders => Set<PurchaseOrderRecord>();
@@ -21,8 +25,10 @@ public sealed class ShopDbContext(DbContextOptions<ShopDbContext> options) : DbC
 
     protected override void ConfigureConventions(ModelConfigurationBuilder configurationBuilder)
     {
-        configurationBuilder.Properties<PurchaseOrderId>().HaveConversion<PurchaseOrderIdConverter>().HaveMaxLength(Identifier.MaxLength);
-        configurationBuilder.Properties<CustomerId>().HaveConversion<CustomerIdConverter>().HaveMaxLength(Identifier.MaxLength);
+        configurationBuilder.Properties<PurchaseOrderId>()
+            .HaveConversion<PurchaseOrderIdConverter>().HaveMaxLength(Identifier.MaxLength).UseCollation(CaseSensitive);
+        configurationBuilder.Properties<CustomerId>()
+            .HaveConversion<CustomerIdConverter>().HaveMaxLength(Identifier.MaxLength).UseCollation(CaseSensitive);
         configurationBuilder.Properties<Money>().HaveConversion<MoneyConverter>().HavePrecision(18, 2);
     }
 
@@ -43,7 +49,6 @@ public sealed class ShopDbContext(DbContextOptions<ShopDbContext> options) : DbC
             order.ToTable("PurchaseOrders");
             order.HasKey(o => o.Id);
             order.Property(o => o.Lines).HasJsonConversion();
-            order.Property(o => o.PayloadHash).HasMaxLength(64).IsFixedLength().IsUnicode(false);
             order.Property(o => o.Status).HasConversion<string>().HasMaxLength(16).IsUnicode(false);
         });
 
