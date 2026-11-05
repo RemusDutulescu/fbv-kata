@@ -1,0 +1,28 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      # Actions are pinned to a commit, not a movable tag; Dependabot keeps the pins current.
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-dotnet@0f4a354dd5547a28c70b7853dbd95d5b67886e73 # v6.1.0
+        with:
+          global-json-file: global.json
+
+      - run: dotnet build --configuration Release
+
+      # Testcontainers starts SQL Server on the runner's Docker; the Temporal SDK downloads its own dev server.
+      - run: dotnet test --configuration Release --no-build
+
+      # The Dockerfile names project files one by one, so a new project reference breaks the image, not the tests.
+      - run: docker build .
