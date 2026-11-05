@@ -1,14 +1,12 @@
 using System.Text.Json;
 using System.Text.Json.Serialization;
-using System.Text.Json.Serialization.Metadata;
 using FunBooksAndVideos.Domain;
-using FunBooksAndVideos.Domain.Fulfilment;
 
 namespace FunBooksAndVideos.Infrastructure.Json;
 
 /// <summary>
-/// JSON for domain types, used by the JSON columns and by Temporal payloads. Polymorphism is configured
-/// here rather than with attributes, so the domain stays free of serialization concerns.
+/// JSON for domain types, used by the JSON columns and by Temporal payloads. Each class hierarchy has a converter of
+/// its own here, so the domain stays free of serialization attributes.
 /// </summary>
 public static class DomainJson
 {
@@ -18,32 +16,17 @@ public static class DomainJson
     {
         var options = new JsonSerializerOptions(JsonSerializerDefaults.Web)
         {
-            TypeInfoResolver = new DefaultJsonTypeInfoResolver { Modifiers = { AddPolymorphism } },
             Converters =
             {
+                new ItemLineJson(),
+                new ProductLineJson(),
+                new FulfilmentCommandJson(),
                 new JsonStringEnumConverter(),
                 new IdConverter<PurchaseOrderId>(id => id.Value, value => new PurchaseOrderId(value)),
                 new IdConverter<CustomerId>(id => id.Value, value => new CustomerId(value)),
             },
         };
-        options.MakeReadOnly();
-        return options;
-    }
-
-    private static void AddPolymorphism(JsonTypeInfo info)
-    {
-        if (info.Type == typeof(ItemLine))
-            info.PolymorphismOptions = Discriminated(("book", typeof(BookLine)), ("video", typeof(VideoLine)), ("membership", typeof(MembershipLine)));
-        else if (info.Type == typeof(ProductLine))
-            info.PolymorphismOptions = Discriminated(("book", typeof(BookLine)), ("video", typeof(VideoLine)));
-        else if (info.Type == typeof(FulfilmentCommand))
-            info.PolymorphismOptions = Discriminated(("activateMembership", typeof(ActivateMembership)), ("generateShippingSlip", typeof(GenerateShippingSlip)));
-    }
-
-    private static JsonPolymorphismOptions Discriminated(params (string Name, Type Type)[] derivedTypes)
-    {
-        var options = new JsonPolymorphismOptions { TypeDiscriminatorPropertyName = "type" };
-        foreach (var (name, type) in derivedTypes) options.DerivedTypes.Add(new JsonDerivedType(type, name));
+        options.MakeReadOnly(populateMissingResolver: true);
         return options;
     }
 
