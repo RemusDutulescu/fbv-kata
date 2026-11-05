@@ -262,6 +262,10 @@ commit that passes CI on `main`, then runs the Postman collection against it. No
    secrets: Deploy signs in to Azure with OpenID Connect.
 5. Re-run Deploy, or push again. `terraform output api_url` is the API.
 
+On a host of your own instead, [deploy/compose.yml](deploy/compose.yml) runs the images CI pushed for one commit
+behind the host's reverse proxy, with SQL Server and the Temporal dev server beside them, and sends the telemetry to
+the host's OTLP collector. Its header lists what the host sets.
+
 ## Layout
 
 Each project depends only on the ones below it: the Api and the Worker on Application, Application on Infrastructure,
@@ -276,6 +280,7 @@ src/FunBooksAndVideos.Domain              the model, the rules and the commands:
 tests/FunBooksAndVideos.Domain.Tests      rules and invariants, without infrastructure
 tests/FunBooksAndVideos.IntegrationTests  workflow, replay, persistence, JSON, HTTP and tracing, against real SQL Server and Temporal
 infra/                                    Terraform: Azure, Entra ID and Temporal Cloud
+deploy/                                   compose for a host of your own, behind its proxy
 observability/                            the Grafana dashboard
 load/                                     the k6 load script
 postman/                                  the collection and its local environment

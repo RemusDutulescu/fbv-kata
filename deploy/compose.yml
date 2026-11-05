@@ -1,0 +1,174 @@
+# FunBooksAndVideos on a host: the images CI pushed for one commit, behind the host's reverse proxy, sending
+# their telemetry to the host's OTLP collector. Nothing here names a host. The host's .env sets:
+#
+#   VERSION         the commit to run; CI tags both images with its full 40-character SHA
+#   EDGE_NETWORK    the host's network, where its proxy and its collector answer
+#   PUBLIC_URL      the app's address, for the load test
+#   OTEL_EXPORTER_OTLP_ENDPOINT, OTEL_EXPORTER_OTLP_PROTOCOL, OTEL_EXPORTER_OTLP_HEADERS
+#                   where the telemetry goes, with its key; with no endpoint, nothing is exported
+#   SQL_PASSWORD    and every other name in x-host's secrets: a random value of letters and digits
+#
+# The host names the project, and so its containers and volumes. No port is published: the proxy reaches the api
+# and the Temporal UI on EDGE_NETWORK, and SQL Server and Temporal never leave the app's own network.
+# Three workers: docker compose up -d --scale worker=3. Load for the dashboard: docker compose run --rm k6.
+
+# What the app needs from a host beyond the settings above.
+x-host:
+  secrets: [SQL_PASSWORD]
+  dashboards: ../observability/dashboards
+
+# No privilege escalation and no capabilities, unless a service adds one back.
+x-hardened: &hardened
+  security_opt: [no-new-privileges:true]
+  cap_drop: [ALL]
+
+# What the api and the workers share. SQL Server wants three kinds of character, so the password starts with them.
+x-app-environment: &app-environment
+  ConnectionStrings__Shop: "Server=sqlserver,1433;Database=FunBooksAndVideos;User Id=sa;Password=aA1${SQL_PASSWORD:?};TrustServerCertificate=True"
+  Temporal__Address: temporal:7233
+  Temporal__Namespace: default
+  OTEL_EXPORTER_OTLP_ENDPOINT: ${OTEL_EXPORTER_OTLP_ENDPOINT:-}
+  OTEL_EXPORTER_OTLP_PROTOCOL: ${OTEL_EXPORTER_OTLP_PROTOCOL:-http/protobuf}
+  OTEL_EXPORTER_OTLP_HEADERS: ${OTEL_EXPORTER_OTLP_HEADERS:-}
+  OTEL_METRIC_EXPORT_INTERVAL: "5000" # every 5 s, as locally, so the dashboard keeps up
+
+services:
+  sqlserver:
+    image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
+    <<: *hardened
+    # sqlservr carries the file capability cap_net_bind_service, and the kernel refuses to start a binary whose file
+    # capability is missing from the bounding set.
+    cap_add: [NET_BIND_SERVICE]
+    environment:
+      ACCEPT_EULA: "Y"
+      MSSQL_SA_PASSWORD: aA1${SQL_PASSWORD:?}
+    volumes:
+      - sqlserver:/var/opt/mssql
+    healthcheck:
+      test: ["CMD-SHELL", "/opt/mssql-tools18/bin/sqlcmd -S localhost -U sa -P \"$${MSSQL_SA_PASSWORD}\" -C -b -Q 'SELECT 1' -o /dev/null"]
+      interval: 5s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
+    deploy:
+      resources:
+        limits:
+          memory: 3G
+    networks: [app]
+
+  # The dev server, headless: its UI is temporal-ui. Its plain gRPC, HTTP API and metrics stay on the app's own
+  # network. The workflows survive a restart in the volume, at the home the image's user owns, so the new volume is
+  # that user's too. SQLite's default journal kept up with about 2 orders a second, WAL with the load test's 20; a
+  # crash of the server loses nothing, a crash of the host its last writes.
+  temporal:
+    image: temporalio/temporal:1.10.0
+    <<: *hardened
+    read_only: true
+    tmpfs: [/tmp]
+    command:
+      [server, start-dev, --ip, 0.0.0.0, --headless, --db-filename, /home/temporal/temporal.db,
+       --sqlite-pragma, journal_mode=wal, --sqlite-pragma, synchronous=normal]
+    volumes:
+      - temporal:/home/temporal
+    healthcheck:
+      test: [CMD, temporal, operator, cluster, health, --address, localhost:7233]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks: [app]
+
+  temporal-ui:
+    image: temporalio/ui:2.58.0
+    <<: *hardened
+    environment:
+      TEMPORAL_ADDRESS: temporal:7233
+    healthcheck:
+      test: [CMD, wget, -q, --spider, http://127.0.0.1:8080/]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+    depends_on:
+      temporal:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 256M
+    networks: [app, edge]
+
+  api:
+    image: ghcr.io/remusdutulescu/fbv-kata-api:${VERSION:?}
+    <<: *hardened
+    read_only: true
+    tmpfs: [/tmp]
+    environment:
+      <<: *app-environment
+      # A shared host takes more than the 30 a minute that protect the Temporal Cloud bill (ADR 6).
+      RateLimiting__SubmissionsPerMinute: "3000"
+      # The proxy in front says the visitor came by https.
+      ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"
+    healthcheck:
+      # The image has bash but no HTTP client.
+      test: [CMD, bash, -c, "exec 3<>/dev/tcp/127.0.0.1/8080 && printf 'GET /health/ready HTTP/1.0\\r\\n\\r\\n' >&3 && head -n 1 <&3 | grep -q ' 200 '"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 20s
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    deploy:
+      resources:
+        limits:
+          memory: 512M
+    networks: [app, edge]
+
+  # Serves no HTTP, so it has no health check. It is on the edge network only for the collector.
+  worker:
+    image: ghcr.io/remusdutulescu/fbv-kata-worker:${VERSION:?}
+    <<: *hardened
+    read_only: true
+    tmpfs: [/tmp]
+    environment: *app-environment
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+    deploy:
+      replicas: 2
+      resources:
+        limits:
+          memory: 512M
+          cpus: "0.5"
+    networks: [app, edge]
+
+  # On demand, against the app's public address through the host's proxy, as a visitor comes.
+  k6:
+    image: grafana/k6:2.3.0
+    <<: *hardened
+    read_only: true
+    profiles: [load]
+    volumes:
+      - ../load:/scripts:ro
+    environment:
+      BASE_URL: ${PUBLIC_URL:-}
+    command: [run, /scripts/submissions.js]
+    networks: [edge]
+
+volumes:
+  sqlserver:
+  temporal:
+
+networks:
+  app:
+    internal: true
+  edge:
+    name: ${EDGE_NETWORK:?}
+    external: true
