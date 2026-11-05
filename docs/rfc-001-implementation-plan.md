@@ -12,18 +12,18 @@ One commit each. Steps 1 to 7 stand on their own; if time ran short, 10 and 11 w
 
 | # | Step | Commit |
 | --- | --- | --- |
-| 1 | Skeleton: the solution, four projects, build properties, editorconfig | `3135231` |
-| 2 | The domain model: value objects, item lines and aggregates, with their tests | `7c392e1` |
-| 3 | Rules, commands and the processor, tested on BR1, BR2, the brief's example, the Premium union and a new rule plugged in | `df27ee4` |
-| 4 | Persistence: EF Core on SQL Server, converters, a rowversion and the first migration | `ce14c23` |
-| 5 | Temporal: the workflow, the activity proxy, Update-with-Start and the hosted worker, with tests on a Temporal dev server and a replay test | `bbeb848` |
-| 6 | The API: contracts, validation, mapping, endpoints, OpenAPI, problem details, limits and health, with integration tests | `67836ca` |
-| 7 | CI | `2c8187e` |
-| 8 | The Postman collection | `5449e67` |
-| 9 | Tracing | `d0c79f5` |
-| 10 | Terraform | `f8d7285` |
-| 11 | The deploy pipeline, ending with Newman | `dab09db` |
-| 12 | The README and the ADRs | `35e81ad` |
+| 1 | Skeleton: the solution, four projects, build properties, editorconfig | `a8a451a` |
+| 2 | The domain model: value objects, item lines and aggregates, with their tests | `58d133e` |
+| 3 | Rules, commands and the processor, tested on BR1, BR2, the brief's example, the Premium union and a new rule plugged in | `d916a63` |
+| 4 | Persistence: EF Core on SQL Server, converters, a rowversion and the first migration | `e8a98b8` |
+| 5 | Temporal: the workflow, the activity proxy, Update-with-Start and the hosted worker, with tests on a Temporal dev server and a replay test | `48f4005` |
+| 6 | The API: contracts, validation, mapping, endpoints, OpenAPI, problem details, limits and health, with integration tests | `c9fe51e` |
+| 7 | CI | `b818aea` |
+| 8 | The Postman collection | `5c3daf3` |
+| 9 | Tracing | `8758a12` |
+| 10 | Terraform | `32b596b` |
+| 11 | The deploy pipeline, ending with Newman | `8905019` |
+| 12 | The README and the ADRs | `dae99d6` |
 
 ## 2. Definition of done
 
@@ -82,12 +82,12 @@ showcase value, such as the pattern table and the OpenAPI description.
 
 | Commit | |
 | --- | --- |
-| `5329501` | refactor: less code for the same behaviour |
-| `b0b70a2` | fix(processing): the stored order decides every submission's outcome |
-| `0f5f40c` | fix(api): stricter input, newline-proof ids, readiness on SQL only |
-| `09ff0ec` | fix(infra): working API docs in Azure, a gentler readiness probe, a narrower deploy role |
-| `e1fc286` | test: one integration suite at the HTTP boundary, and no tests of the compiler |
-| `baab453` | docs: claims that match the code, each said once |
+| `0c10ce1` | refactor: less code for the same behaviour |
+| `e5cfd1f` | fix(processing): the stored order decides every submission's outcome |
+| `7159114` | fix(api): stricter input, newline-proof ids, readiness on SQL only |
+| `83c1fcf` | fix(infra): working API docs in Azure, a gentler readiness probe, a narrower deploy role |
+| `4a3f07e` | test: one integration suite at the HTTP boundary, and no tests of the compiler |
+| `79c3df9` | docs: claims that match the code, each said once |
 
 In `src` and `tests`, leaving out the regenerated migration, they removed 531 lines and added 323, the fixes and their
 new tests included. Afterwards the build had no warnings, the tests passed, Newman was green against a fresh stack, and
@@ -105,7 +105,7 @@ while it registers services, before settings added with `ConfigureAppConfigurati
 exporters' standard variables stay as they are, because the exporters read them themselves.
 
 **The owner's answer** at 12:29: "Agreed, build your recommendations. And yes, it's OK to skip those 2 telemetry
-vars." That became `2feac86`, checked with the compose stack stopped so that a setting that didn't apply couldn't
+vars." That became `0cdb9e2`, checked with the compose stack stopped so that a setting that didn't apply couldn't
 fall back to it, and by starting the image without its settings, which it refuses.
 
 Last came this folder, written up from the session's record.
@@ -153,13 +153,13 @@ deploy workflow, then these documents. Hosting on the owner's server comes after
 
 | Commit | |
 | --- | --- |
-| `2e79b50` | refactor: three tiers, and a worker host of its own |
-| `0f4607f` | refactor(json): one explicit converter per domain hierarchy |
-| `0686b29` | refactor(api): MVC controllers instead of Minimal APIs |
-| `14784f8` | fix(submission): an outage answers 503 or 202, an operator-stopped order 409 |
-| `1ea533c` | feat(telemetry): metrics and logs beside the traces, in Grafana |
-| `782ff33` | feat(infra): the worker as a second container app |
-| `fdca573` | chore(compose): two workers from the start |
+| `2490cab` | refactor: three tiers, and a worker host of its own |
+| `92cbdf5` | refactor(json): one explicit converter per domain hierarchy |
+| `e258bed` | refactor(api): MVC controllers instead of Minimal APIs |
+| `ba99087` | fix(submission): an outage answers 503 or 202, an operator-stopped order 409 |
+| `9a242f6` | feat(telemetry): metrics and logs beside the traces, in Grafana |
+| `b3ca693` | feat(infra): the worker as a second container app |
+| `466a9a5` | chore(compose): two workers from the start |
 
 One part of the proposal didn't survive measurement. It expected one worker to fall behind under load, and three to
 catch up. Locally, the Temporal dev server gives out first, at about 50 orders a second, so more workers spread the
