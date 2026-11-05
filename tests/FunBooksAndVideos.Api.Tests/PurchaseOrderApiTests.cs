@@ -160,7 +160,7 @@ public sealed class PurchaseOrderApiTests(AppFixture fixture)
     public async Task Health_checks_answer_healthy(string path) =>
         Assert.Equal("Healthy", await _http.GetStringAsync(path, Ct));
 
-    private static JsonObject AnOrder(string? customerId = null, string membership = "bookClub") => JsonNode.Parse($$"""
+    internal static JsonObject AnOrder(string? customerId = null, string membership = "bookClub") => JsonNode.Parse($$"""
         {
           "id": "{{NewId()}}",
           "customerId": "{{customerId ?? NewId()}}",

@@ -1,4 +1,5 @@
 using FunBooksAndVideos.Api.Endpoints;
+using FunBooksAndVideos.Api.Observability;
 using FunBooksAndVideos.Api.Persistence;
 using FunBooksAndVideos.Api.Processing;
 using Microsoft.EntityFrameworkCore;
@@ -10,6 +11,7 @@ builder.Services.AddDbContext<ShopDbContext>(options => options.UseSqlServer(
     sql => sql.EnableRetryOnFailure()));
 builder.Services.AddOrderProcessing(builder.Configuration);
 builder.Services.AddHttpApi(builder.Configuration);
+builder.Services.AddTelemetry(builder.Configuration);
 
 // The largest valid order (100 lines with 200-character titles) is far below this; anything bigger is refused unread.
 builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = 256 * 1024);

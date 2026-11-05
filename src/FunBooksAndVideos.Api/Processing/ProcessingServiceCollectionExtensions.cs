@@ -1,8 +1,10 @@
+using FunBooksAndVideos.Api.Observability;
 using FunBooksAndVideos.Domain.Rules;
 using Microsoft.Extensions.Options;
 using Temporalio.Client;
 using Temporalio.Converters;
 using Temporalio.Extensions.Hosting;
+using Temporalio.Extensions.OpenTelemetry;
 
 namespace FunBooksAndVideos.Api.Processing;
 
@@ -18,8 +20,8 @@ public static class ProcessingServiceCollectionExtensions
         services.AddOptions<TemporalOptions>().Bind(section).ValidateDataAnnotations().ValidateOnStart();
 
         // The business rules. A new rule is one class plus one line here; the processor never changes.
-        services.AddSingleton<IPurchaseOrderRule, MembershipActivationRule>();
-        services.AddSingleton<IPurchaseOrderRule, ShippingSlipRule>();
+        services.AddRule<MembershipActivationRule>();
+        services.AddRule<ShippingSlipRule>();
         services.AddSingleton<PurchaseOrderProcessor>();
 
         services.AddTemporalClient(_ => { });
@@ -28,6 +30,9 @@ public static class ProcessingServiceCollectionExtensions
             client.TargetHost = temporal.Value.Address;
             client.Namespace = temporal.Value.Namespace;
             client.DataConverter = TemporalDataConverter;
+
+            // Carries the trace context through workflow and activity headers; the hosted worker picks it up too.
+            client.Interceptors = [new TracingInterceptor()];
             if (!string.IsNullOrEmpty(temporal.Value.ApiKey))
             {
                 client.ApiKey = temporal.Value.ApiKey;
@@ -45,4 +50,9 @@ public static class ProcessingServiceCollectionExtensions
         services.AddScoped<OrderSubmitter>();
         return services;
     }
+
+    /// <summary>Registers a rule wrapped in a <see cref="TracedRule"/>, so every rule shows up in the trace.</summary>
+    private static void AddRule<TRule>(this IServiceCollection services)
+        where TRule : class, IPurchaseOrderRule =>
+        services.AddSingleton<IPurchaseOrderRule>(provider => new TracedRule(ActivatorUtilities.CreateInstance<TRule>(provider)));
 }

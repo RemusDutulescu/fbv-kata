@@ -27,6 +27,14 @@ services:
       timeout: 5s
       retries: 20
 
+  dashboard:
+    image: mcr.microsoft.com/dotnet/aspire-dashboard:13.6.2
+    environment:
+      ASPIRE_DASHBOARD_UNSECURED_ALLOW_ANONYMOUS: "true"
+    ports:
+      - "18888:18888" # traces UI
+      - "4317:18889"  # OTLP gRPC, for the API when it runs from source
+
   api:
     build: .
     ports:
@@ -34,8 +42,11 @@ services:
     environment:
       ConnectionStrings__Shop: "Server=sqlserver,1433;Database=FunBooksAndVideos;User Id=sa;Password=Local_dev_only_1!;TrustServerCertificate=True"
       Temporal__Address: "temporal:7233"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://dashboard:18889"
     depends_on:
       sqlserver:
         condition: service_healthy
       temporal:
         condition: service_healthy
+      dashboard:
+        condition: service_started

@@ -16,11 +16,12 @@ docker compose up --build
 
 - API docs, to try it: <http://localhost:5080>
 - Temporal UI, to watch the workflows: <http://localhost:8233>
+- Traces, from the request through the workflow to each rule: <http://localhost:18888>
 
-To run the API from source instead (needs the .NET 10 SDK), start only its dependencies:
+To run the API from source instead (needs the .NET 10 SDK), start only what it depends on:
 
 ```shell
-docker compose up sqlserver temporal
+docker compose up sqlserver temporal dashboard
 dotnet run --project src/FunBooksAndVideos.Api
 ```
 
