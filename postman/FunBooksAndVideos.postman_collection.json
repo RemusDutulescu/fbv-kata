@@ -1,7 +1,7 @@
 {
   "info": {
     "name": "FunBooksAndVideos",
-    "description": "Runs the brief's example and the edge cases against a running API. Pick the local or azure environment; every request asserts its own outcome.",
+    "description": "Runs the brief's example and the edge cases against a running API. Pick the local environment, or set baseUrl to another deployment; every request asserts its own outcome.",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
   },
   "item": [
@@ -404,7 +404,7 @@
                 "type": "text/javascript",
                 "exec": [
                   "pm.test('400', () => pm.response.to.have.status(400));",
-                  "pm.test('The problem says where', () => pm.expect(pm.response.json().path).to.eql('$.items[0]'));"
+                  "pm.test('The problem says where', () => pm.expect(pm.response.json().errors).to.have.all.keys('$.items[0]'));"
                 ]
               }
             }

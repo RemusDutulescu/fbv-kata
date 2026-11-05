@@ -2,8 +2,8 @@ using System.Text.Json.Serialization;
 
 namespace FunBooksAndVideos.Api.Contracts;
 
-// The public HTTP contract, versioned under /v1 and kept apart from the domain (an anti-corruption layer). Every field
-// is required and only ShippingSlip may be null, which the serializer enforces (HttpApi.StrictJson) and the OpenAPI
+// The public HTTP contract, versioned under /v1 and kept apart from the domain (a published language). Every field
+// is required and only ShippingSlip may be null, which the serializer enforces (StrictJson) and the OpenAPI
 // document states.
 
 /// <summary>A purchase order to process.</summary>

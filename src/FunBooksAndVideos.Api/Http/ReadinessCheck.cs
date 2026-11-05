@@ -1,7 +1,7 @@
 using FunBooksAndVideos.Infrastructure.Persistence;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
-namespace FunBooksAndVideos.Api.Endpoints;
+namespace FunBooksAndVideos.Api.Http;
 
 /// <summary>
 /// Ready means SQL Server answers: nothing works without it. Temporal is left out, so a blip there doesn't take the

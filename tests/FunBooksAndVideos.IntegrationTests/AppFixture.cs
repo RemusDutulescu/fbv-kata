@@ -61,6 +61,11 @@ public sealed class AppFixture : IAsyncLifetime
         await _worker.StartAsync();
     }
 
+    /// <summary>The API on a task queue no worker polls, so no submission is ever acknowledged, and it gives up after a second.</summary>
+    public WebApplicationFactory<Program> ApiWithoutWorkers() => App.WithWebHostBuilder(web => web
+        .UseSetting("Temporal:TaskQueue", "no-workers")
+        .UseSetting("Submission:AcknowledgementTimeout", "00:00:01"));
+
     public ShopDbContext CreateDbContext() =>
         new(new DbContextOptionsBuilder<ShopDbContext>().UseSqlServer(_sql.GetConnectionString()).Options);
 

@@ -1,13 +1,15 @@
 using System.Net;
 using System.Net.Http.Json;
 using System.Text;
+using System.Text.Json;
 using System.Text.Json.Nodes;
-using FunBooksAndVideos.Api.Endpoints;
+using FunBooksAndVideos.Api.Contracts;
 using FunBooksAndVideos.Application.Processing;
-using FunBooksAndVideos.Application.Submission;
 using FunBooksAndVideos.Domain;
-using Microsoft.AspNetCore.Http;
-using Microsoft.AspNetCore.Http.HttpResults;
+using FunBooksAndVideos.Infrastructure.Persistence;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.Extensions.DependencyInjection;
+using Microsoft.Extensions.Options;
 
 namespace FunBooksAndVideos.IntegrationTests;
 
@@ -119,7 +121,7 @@ public sealed class PurchaseOrderApiTests(AppFixture fixture)
         var response = await _http.PostAsync(Orders, new StringContent(body, Encoding.UTF8, "application/json"), Ct);
 
         var problem = await AssertProblemAsync(response, HttpStatusCode.BadRequest);
-        Assert.Equal(path, (string?)problem["path"]);
+        Assert.True(problem["errors"]?.AsObject().ContainsKey(path) == true, problem.ToJsonString());
     }
 
     [Fact]
@@ -145,20 +147,24 @@ public sealed class PurchaseOrderApiTests(AppFixture fixture)
     }
 
     [Fact]
-    public void A_slow_acknowledgement_answers_202_with_where_to_look()
+    public async Task A_stored_order_whose_activation_stalls_answers_202_with_where_to_look()
     {
-        // Provoking this end to end needs a stalled worker; the mapping is pure, so test it directly.
-        var result = PurchaseOrderEndpoints.Respond(SubmissionOutcome.Pending, new PurchaseOrderId("3344656"), stored: null);
+        var order = AnOrder();
+        await StoreAsync(order);
+        await using var api = fixture.ApiWithoutWorkers();
 
-        Assert.Equal($"{Orders}/3344656", Assert.IsType<Accepted>(result.Result).Location);
+        var response = await api.CreateClient().PostAsJsonAsync(Orders, order, Ct);
+
+        Assert.Equal(HttpStatusCode.Accepted, response.StatusCode);
+        Assert.Equal($"{Orders}/{order["id"]}", response.Headers.Location?.OriginalString);
     }
 
     [Fact]
-    public void An_unconfirmed_submission_answers_503_so_the_client_resubmits()
+    public async Task An_order_no_worker_has_stored_answers_503_so_the_client_resubmits()
     {
-        var result = PurchaseOrderEndpoints.Respond(SubmissionOutcome.Unconfirmed, new PurchaseOrderId("3344656"), stored: null);
+        await using var api = fixture.ApiWithoutWorkers();
 
-        Assert.Equal(StatusCodes.Status503ServiceUnavailable, Assert.IsType<ProblemHttpResult>(result.Result).StatusCode);
+        await AssertProblemAsync(await api.CreateClient().PostAsJsonAsync(Orders, AnOrder(), Ct), HttpStatusCode.ServiceUnavailable);
     }
 
     [Fact]
@@ -166,8 +172,10 @@ public sealed class PurchaseOrderApiTests(AppFixture fixture)
     {
         var document = await _http.GetFromJsonAsync<JsonObject>("/openapi/v1.json", Ct);
 
-        var responses = document!["paths"]![Orders]!["post"]!["responses"]!.AsObject();
-        Assert.Equal(["200", "201", "202", "400", "409", "429", "503"], responses.Select(response => response.Key).Order());
+        var submit = document!["paths"]![Orders]!["post"]!;
+        Assert.Equal(["200", "201", "202", "400", "409", "429", "503"], submit["responses"]!.AsObject().Select(response => response.Key).Order());
+        // The descriptions come from the controllers' XML comments.
+        Assert.Equal("Submit a purchase order.", (string?)submit["summary"]);
     }
 
     [Theory]
@@ -190,6 +198,15 @@ public sealed class PurchaseOrderApiTests(AppFixture fixture)
         """)!.AsObject();
 
     private static string NewId() => Guid.NewGuid().ToString("N");
+
+    /// <summary>Stores an order as its workflow's first activity does, with the rest of its workflow still to come.</summary>
+    private async Task StoreAsync(JsonObject order)
+    {
+        var json = fixture.App.Services.GetRequiredService<IOptions<JsonOptions>>().Value.JsonSerializerOptions;
+        await using var db = fixture.CreateDbContext();
+        db.PurchaseOrders.Add(PurchaseOrderRecord.Accept(order.Deserialize<SubmitPurchaseOrderRequest>(json)!.ToDomain(), DateTimeOffset.UtcNow));
+        await db.SaveChangesAsync(Ct);
+    }
 
     private static async Task<JsonObject> AssertProblemAsync(HttpResponseMessage response, HttpStatusCode status)
     {
