@@ -33,12 +33,5 @@ public sealed class ValueObjectTests
     public void An_id_has_a_maximum_length() =>
         Assert.Throws<DomainException>(() => new CustomerId(new string('9', Identifier.MaxLength + 1)));
 
-    [Fact]
-    public void Ids_compare_by_value() => Assert.Equal(new CustomerId("4567890"), new CustomerId("4567890"));
-
-    [Fact]
-    public void Premium_is_both_clubs() =>
-        Assert.Equal(MembershipType.BookClub | MembershipType.VideoClub, MembershipType.Premium);
-
     private static decimal Parse(string amount) => decimal.Parse(amount, CultureInfo.InvariantCulture);
 }

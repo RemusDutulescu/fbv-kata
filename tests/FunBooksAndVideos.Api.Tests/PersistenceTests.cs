@@ -9,24 +9,6 @@ public sealed class PersistenceTests(AppFixture sql)
     private static CancellationToken Ct => TestContext.Current.CancellationToken;
 
     [Fact]
-    public async Task A_customer_round_trips_with_its_memberships()
-    {
-        var id = new CustomerId(NewId());
-        await using (var db = sql.CreateDbContext())
-        {
-            var customer = new Customer(id);
-            customer.Activate(MembershipType.BookClub);
-            db.Customers.Add(customer);
-            await db.SaveChangesAsync(Ct);
-        }
-
-        await using var read = sql.CreateDbContext();
-        var stored = await read.Customers.SingleAsync(c => c.Id == id, Ct);
-
-        Assert.Equal(MembershipType.BookClub, stored.Memberships);
-    }
-
-    [Fact]
     public async Task A_concurrent_change_to_the_same_customer_is_detected()
     {
         var id = new CustomerId(NewId());

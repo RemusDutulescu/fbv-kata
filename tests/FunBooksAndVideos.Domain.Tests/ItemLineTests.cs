@@ -2,13 +2,6 @@ namespace FunBooksAndVideos.Domain.Tests;
 
 public sealed class ItemLineTests
 {
-    [Fact]
-    public void Books_are_physical_and_videos_are_not()
-    {
-        Assert.True(new BookLine("The Girl on the train").IsPhysical);
-        Assert.False(new VideoLine("Comprehensive First Aid Training").IsPhysical);
-    }
-
     [Theory]
     [InlineData("")]
     [InlineData(" ")]

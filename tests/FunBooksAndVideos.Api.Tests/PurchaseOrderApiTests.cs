@@ -71,12 +71,16 @@ public sealed class PurchaseOrderApiTests(AppFixture fixture)
     }
 
     [Fact]
-    public async Task Orders_for_each_club_make_a_customer_premium()
+    public async Task Simultaneous_orders_for_each_club_make_a_customer_premium()
     {
         var customerId = NewId();
-        await _http.PostAsJsonAsync(Orders, AnOrder(customerId, "bookClub"), Ct);
-        await _http.PostAsJsonAsync(Orders, AnOrder(customerId, "videoClub"), Ct);
 
+        // Both race to create the same customer. The loser's activity fails on the conflict, and its retry builds on the winner.
+        var responses = await Task.WhenAll(
+            _http.PostAsJsonAsync(Orders, AnOrder(customerId, "bookClub"), Ct),
+            _http.PostAsJsonAsync(Orders, AnOrder(customerId, "videoClub"), Ct));
+
+        Assert.All(responses, response => Assert.Equal(HttpStatusCode.Created, response.StatusCode));
         var memberships = await _http.GetFromJsonAsync<JsonObject>($"/v1/customers/{customerId}/memberships", Ct);
 
         Assert.True((bool)memberships!["premium"]!);
