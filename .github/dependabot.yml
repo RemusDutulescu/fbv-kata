@@ -12,3 +12,8 @@ updates:
     directory: /
     schedule:
       interval: weekly
+
+  - package-ecosystem: terraform
+    directory: /infra
+    schedule:
+      interval: weekly
