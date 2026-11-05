@@ -10,6 +10,7 @@
 #
 # The host names the project, and so its containers and volumes. No port is published: the proxy reaches the api
 # and the Temporal UI on EDGE_NETWORK, and SQL Server and Temporal never leave the app's own network.
+# Every service but the load test comes back when the host restarts.
 # Three workers: docker compose up -d --scale worker=3. Load for the dashboard: docker compose run --rm k6.
 
 # What the app needs from a host beyond the settings above.
@@ -36,6 +37,7 @@ services:
   sqlserver:
     image: mcr.microsoft.com/mssql/server:2022-CU27-ubuntu-22.04
     <<: *hardened
+    restart: unless-stopped
     # sqlservr carries the file capability cap_net_bind_service, and the kernel refuses to start a binary whose file
     # capability is missing from the bounding set.
     cap_add: [NET_BIND_SERVICE]
@@ -63,6 +65,7 @@ services:
   temporal:
     image: temporalio/temporal:1.10.0
     <<: *hardened
+    restart: unless-stopped
     read_only: true
     tmpfs: [/tmp]
     command:
@@ -84,6 +87,7 @@ services:
   temporal-ui:
     image: temporalio/ui:2.58.0
     <<: *hardened
+    restart: unless-stopped
     environment:
       TEMPORAL_ADDRESS: temporal:7233
     healthcheck:
@@ -103,6 +107,7 @@ services:
   api:
     image: ghcr.io/remusdutulescu/fbv-kata-api:${VERSION:?}
     <<: *hardened
+    restart: unless-stopped
     read_only: true
     tmpfs: [/tmp]
     environment:
@@ -133,6 +138,7 @@ services:
   worker:
     image: ghcr.io/remusdutulescu/fbv-kata-worker:${VERSION:?}
     <<: *hardened
+    restart: unless-stopped
     read_only: true
     tmpfs: [/tmp]
     environment: *app-environment
