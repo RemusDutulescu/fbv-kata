@@ -1,0 +1,95 @@
+name: Deploy
+
+# Runs once CI has passed on main, so only a tested commit reaches Azure.
+on:
+  workflow_run:
+    workflows: [CI]
+    types: [completed]
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: deploy
+  cancel-in-progress: false
+
+jobs:
+  image:
+    # Only pushes to this repository's main branch: never a pull request, and never a fork's branch called main.
+    if: >-
+      github.event.workflow_run.conclusion == 'success' &&
+      github.event.workflow_run.event == 'push' &&
+      github.event.workflow_run.head_repository.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write
+    outputs:
+      image: ${{ steps.push.outputs.image }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      - id: push
+        name: Build and push to GitHub Container Registry
+        env:
+          SHA: ${{ github.event.workflow_run.head_sha }}
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          image="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          docker build --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+            --tag "$image:$SHA" --tag "$image:latest" .
+          docker push --all-tags "$image"
+          echo "image=$image:$SHA" >> "$GITHUB_OUTPUT"
+
+  deploy:
+    needs: image
+    # Skipped until Terraform has run and its github_variables output is in the repository variables.
+    if: vars.AZURE_CLIENT_ID != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    permissions:
+      contents: read
+      id-token: write
+    env:
+      APP: ${{ vars.AZURE_CONTAINER_APP }}
+      GROUP: ${{ vars.AZURE_RESOURCE_GROUP }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.workflow_run.head_sha }}
+
+      # OpenID Connect: GitHub vouches for this run, so no Azure credential is stored here.
+      - uses: azure/login@a641126d1b8aa4d1fa005f4f92df94a3a4c4c906 # v3.1.0
+        with:
+          client-id: ${{ vars.AZURE_CLIENT_ID }}
+          tenant-id: ${{ vars.AZURE_TENANT_ID }}
+          subscription-id: ${{ vars.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Roll out the image
+        env:
+          IMAGE: ${{ needs.image.outputs.image }}
+        run: az containerapp update --name "$APP" --resource-group "$GROUP" --image "$IMAGE" --output none
+
+      - name: Wait for the new revision to be ready
+        run: |
+          for _ in $(seq 60); do
+            ready=$(az containerapp show --name "$APP" --resource-group "$GROUP" \
+              --query "properties.latestRevisionName == properties.latestReadyRevisionName" --output tsv)
+            [ "$ready" = "true" ] && exit 0
+            sleep 5
+          done
+          echo "The new revision was not ready within five minutes." >&2
+          exit 1
+
+      - name: Run the Postman collection against Azure
+        run: |
+          fqdn=$(az containerapp show --name "$APP" --resource-group "$GROUP" \
+            --query properties.configuration.ingress.fqdn --output tsv)
+          docker run --rm -v "$PWD/postman:/etc/newman" postman/newman:6.1.3-alpine \
+            run FunBooksAndVideos.postman_collection.json -e azure.postman_environment.json \
+            --env-var "baseUrl=https://$fqdn"
