@@ -170,6 +170,9 @@ Architecture decision records, in [docs/adr](docs/adr/):
 6. [Validation in layers](docs/adr/0006-validation-in-layers.md)
 7. [Azure Container Apps, Azure SQL and Temporal Cloud](docs/adr/0007-azure-container-apps-sql-and-temporal-cloud.md)
 
+[How they were reached](docs/README.md): a BRD, an RFC and a plan, each ending at a gate where the owner answered,
+then the build and a review.
+
 ## Assumptions
 
 - Orders arrive paid. This service fulfils them; it neither prices nor charges, so the total is stored as given (GBP).
@@ -235,6 +238,7 @@ src/FunBooksAndVideos.Api             HTTP, the Temporal workflow and activities
 tests/FunBooksAndVideos.Domain.Tests  rules and invariants, without infrastructure
 tests/FunBooksAndVideos.Api.Tests     workflow, replay, persistence, HTTP and tracing, against real SQL Server and Temporal
 infra/                                Terraform: Azure, Entra ID and Temporal Cloud
-postman/                              the collection and its environments
+postman/                              the collection and its local environment
+docs/                                 how it was built: the BRD, the RFC, the plan and their gates
 docs/adr/                             the decisions above
 ```
