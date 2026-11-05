@@ -1,0 +1,472 @@
+{
+  "info": {
+    "name": "FunBooksAndVideos",
+    "description": "Runs the brief's example and the edge cases against a running API. Pick the local or azure environment; every request asserts its own outcome.",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json"
+  },
+  "item": [
+    {
+      "name": "The brief's example",
+      "item": [
+        {
+          "name": "Submit the brief's order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201 the first time, 200 once the order exists', () => pm.expect(pm.response.code).to.be.oneOf([200, 201]));",
+                  "const order = pm.response.json();",
+                  "pm.test('The order comes back as submitted', () => {",
+                  "    pm.expect(order.id).to.eql('3344656');",
+                  "    pm.expect(order.customerId).to.eql('4567890');",
+                  "    pm.expect(order.total).to.eql(48.5);",
+                  "    pm.expect(order.items).to.have.lengthOf(3);",
+                  "});",
+                  "if (pm.response.code === 201) {",
+                  "    pm.test('Location points at the order', () => pm.expect(pm.response.headers.get('Location')).to.eql('/v1/purchase-orders/3344656'));",
+                  "}",
+                  "pm.collectionVariables.set('briefAcceptedAt', order.acceptedAt);"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchase-orders",
+            "description": "The purchase order from the brief. 201 on a fresh database; 200 afterwards, because resubmitting an order is a safe retry.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"3344656\",\n  \"customerId\": \"4567890\",\n  \"total\": 48.50,\n  \"items\": [\n    {\n      \"type\": \"video\",\n      \"title\": \"Comprehensive First Aid Training\"\n    },\n    {\n      \"type\": \"book\",\n      \"title\": \"The Girl on the train\"\n    },\n    {\n      \"type\": \"membership\",\n      \"membership\": \"bookClub\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "BR1: the Book Club membership is active",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('Book Club is active', () => pm.expect(pm.response.json().clubs).to.include('bookClub'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/customers/4567890/memberships",
+            "description": "Checked straight after the submission answered, with no waiting: activation is part of the answer."
+          }
+        },
+        {
+          "name": "BR2: only the book ships",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const order = pm.response.json();",
+                  "const polls = Number(pm.collectionVariables.get('polls') || 0);",
+                  "if (order.status === 'processing' && polls < 20) {",
+                  "    pm.collectionVariables.set('polls', polls + 1);",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "    setTimeout(() => {}, 250);",
+                  "} else {",
+                  "    pm.collectionVariables.unset('polls');",
+                  "    pm.test('The order is completed', () => pm.expect(order.status).to.eql('completed'));",
+                  "    pm.test('The slip lists only the book', () => pm.expect(order.shippingSlip.items).to.eql([",
+                  "        { type: 'book', title: 'The Girl on the train' },",
+                  "    ]));",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/purchase-orders/3344656",
+            "description": "The shipping slip lists the physical products only: the book, not the video or the membership."
+          }
+        },
+        {
+          "name": "Resubmitting the order is safe",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "pm.test('The same order, accepted once', () => {",
+                  "    const order = pm.response.json();",
+                  "    pm.expect(order.id).to.eql('3344656');",
+                  "    pm.expect(order.acceptedAt).to.eql(pm.collectionVariables.get('briefAcceptedAt'));",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchase-orders",
+            "description": "A client retry, e.g. after a timeout: the same order, not a second one.",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"3344656\",\n  \"customerId\": \"4567890\",\n  \"total\": 48.50,\n  \"items\": [\n    {\n      \"type\": \"video\",\n      \"title\": \"Comprehensive First Aid Training\"\n    },\n    {\n      \"type\": \"book\",\n      \"title\": \"The Girl on the train\"\n    },\n    {\n      \"type\": \"membership\",\n      \"membership\": \"bookClub\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Reusing the id for another order is a conflict",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('409', () => pm.response.to.have.status(409));",
+                  "pm.test('A problem response', () => pm.expect(pm.response.headers.get('Content-Type')).to.include('application/problem+json'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchase-orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"3344656\",\n  \"customerId\": \"4567890\",\n  \"total\": 12.00,\n  \"items\": [\n    {\n      \"type\": \"book\",\n      \"title\": \"Another book\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        }
+      ]
+    },
+    {
+      "name": "More orders",
+      "item": [
+        {
+          "name": "A digital-only order",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('digitalOrderId', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchase-orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{digitalOrderId}}\",\n  \"customerId\": \"{{$guid}}\",\n  \"total\": 9.99,\n  \"items\": [\n    {\n      \"type\": \"video\",\n      \"title\": \"Comprehensive First Aid Training\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "A digital-only order ships nothing",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "const order = pm.response.json();",
+                  "const polls = Number(pm.collectionVariables.get('polls') || 0);",
+                  "if (order.status === 'processing' && polls < 20) {",
+                  "    pm.collectionVariables.set('polls', polls + 1);",
+                  "    pm.execution.setNextRequest(pm.info.requestName);",
+                  "    setTimeout(() => {}, 250);",
+                  "} else {",
+                  "    pm.collectionVariables.unset('polls');",
+                  "    pm.test('The order is completed', () => pm.expect(order.status).to.eql('completed'));",
+                  "    pm.test('No shipping slip', () => pm.expect(order.shippingSlip).to.be.null);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/purchase-orders/{{digitalOrderId}}"
+          }
+        },
+        {
+          "name": "Book Club for a new customer",
+          "event": [
+            {
+              "listen": "prerequest",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.collectionVariables.set('clubCustomerId', pm.variables.replaceIn('{{$guid}}'));"
+                ]
+              }
+            },
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchase-orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{$guid}}\",\n  \"customerId\": \"{{clubCustomerId}}\",\n  \"total\": 20.00,\n  \"items\": [\n    {\n      \"type\": \"membership\",\n      \"membership\": \"bookClub\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Then Video Club",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('201', () => pm.response.to.have.status(201));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchase-orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"{{$guid}}\",\n  \"customerId\": \"{{clubCustomerId}}\",\n  \"total\": 20.00,\n  \"items\": [\n    {\n      \"type\": \"membership\",\n      \"membership\": \"videoClub\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "Both clubs make the customer Premium",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('200', () => pm.response.to.have.status(200));",
+                  "const memberships = pm.response.json();",
+                  "pm.test('Premium', () => {",
+                  "    pm.expect(memberships.premium).to.be.true;",
+                  "    pm.expect(memberships.clubs).to.eql(['bookClub', 'videoClub']);",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/customers/{{clubCustomerId}}/memberships"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Rejected",
+      "item": [
+        {
+          "name": "Invalid values are reported together",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));",
+                  "pm.test('One error per field, named as sent', () => {",
+                  "    pm.expect(pm.response.json().errors).to.have.all.keys('id', 'total', 'items[0].title');",
+                  "});"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchase-orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"not an id\",\n  \"customerId\": \"4567890\",\n  \"total\": -1,\n  \"items\": [\n    {\n      \"type\": \"book\",\n      \"title\": \"\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "A line needs a type",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('400', () => pm.response.to.have.status(400));",
+                  "pm.test('The problem says where', () => pm.expect(pm.response.json().path).to.eql('$.items[0]'));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "url": "{{baseUrl}}/v1/purchase-orders",
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"id\": \"untyped-line\",\n  \"customerId\": \"4567890\",\n  \"total\": 1,\n  \"items\": [\n    {\n      \"title\": \"Mystery item\"\n    }\n  ]\n}",
+              "options": {
+                "raw": {
+                  "language": "json"
+                }
+              }
+            }
+          }
+        },
+        {
+          "name": "An unknown order",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "pm.test('404', () => pm.response.to.have.status(404));"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": "{{baseUrl}}/v1/purchase-orders/{{$guid}}"
+          }
+        }
+      ]
+    }
+  ],
+  "variable": [
+    {
+      "key": "briefAcceptedAt",
+      "value": ""
+    },
+    {
+      "key": "digitalOrderId",
+      "value": ""
+    },
+    {
+      "key": "clubCustomerId",
+      "value": ""
+    },
+    {
+      "key": "polls",
+      "value": ""
+    }
+  ]
+}
