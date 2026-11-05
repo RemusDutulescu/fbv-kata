@@ -1,0 +1,35 @@
+# 2. Immediate activation with Update-with-Start
+
+Status: accepted, 2026-11-05
+
+## Context
+
+BR1 says a membership in an order must be activated immediately. Once processing is asynchronous and durable,
+"immediately" can slide into "soon". For a customer who has just bought a membership in the app, it means the
+membership works by the time the app says the order went through.
+
+## Decision
+
+The API starts the order's workflow and sends it a `Submit` update in a single call (Update-with-Start). The update
+completes once the workflow has run the commands marked `Immediate`, which is BR1's activation, and before the
+`Deferred` ones, such as BR2's slip. A 201 therefore means "accepted, and the memberships are active".
+
+The rule that emits a command decides its timing, so the workflow never needs to know which rule wants what.
+
+If the acknowledgement takes longer than `Temporal:AcknowledgementTimeout` (10 seconds), the API answers 202 with a
+Location to poll. The workflow carries on either way.
+
+## Alternatives
+
+- **Start the workflow and always answer 202.** Simplest, but then BR1 isn't immediate for the client.
+- **Activate in the API, then start a workflow for the rest.** That makes two write paths, and a crash between them
+  leaves a membership without its order, or the other way round.
+- **Start the workflow, then poll until the membership is active.** It works, but costs more round trips than one
+  call.
+
+## Consequences
+
+- A submission's latency includes storing the order and activating the membership: tens of milliseconds locally.
+- Which commands are immediate is a business decision made in one place, the rule.
+- The 202 mapping is unit tested, and the slow acknowledgement is tested at the workflow level against scripted
+  activities.
