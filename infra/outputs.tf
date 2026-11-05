@@ -10,7 +10,8 @@ output "github_variables" {
     AZURE_TENANT_ID       = data.azurerm_client_config.current.tenant_id
     AZURE_SUBSCRIPTION_ID = data.azurerm_client_config.current.subscription_id
     AZURE_RESOURCE_GROUP  = azurerm_resource_group.main.name
-    AZURE_CONTAINER_APP   = azurerm_container_app.api.name
+    AZURE_API_APP         = azurerm_container_app.api.name
+    AZURE_WORKER_APP      = azurerm_container_app.worker.name
   }
 }
 

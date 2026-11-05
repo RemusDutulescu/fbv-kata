@@ -16,10 +16,11 @@ resource "azuread_application_federated_identity_credential" "main_branch" {
   subject        = "repo:${var.github_repository}:ref:refs/heads/main"
 }
 
-# Contributor on the container app only: enough to roll out an image, but not to touch SQL, the firewall or the
-# identities in the resource group.
+# Contributor on the two container apps only: enough to roll out their images, but not to touch SQL, the firewall
+# or the identity in the resource group.
 resource "azurerm_role_assignment" "deploy" {
-  scope                = azurerm_container_app.api.id
+  for_each             = { api = azurerm_container_app.api.id, worker = azurerm_container_app.worker.id }
+  scope                = each.value
   role_definition_name = "Contributor"
   principal_id         = azuread_service_principal.deploy.object_id
 }

@@ -5,9 +5,9 @@ resource "temporalcloud_namespace" "main" {
   retention_days = 7
 }
 
-# The API's service account can reach this namespace and nothing else in the account.
-resource "temporalcloud_service_account" "api" {
-  name = "${local.name}-api"
+# The apps' service account can reach this namespace and nothing else in the account.
+resource "temporalcloud_service_account" "app" {
+  name = local.name
 
   namespace_scoped_access = {
     namespace_id = temporalcloud_namespace.main.id
@@ -15,9 +15,9 @@ resource "temporalcloud_service_account" "api" {
   }
 }
 
-resource "temporalcloud_apikey" "api" {
-  display_name = "${local.name}-api"
+resource "temporalcloud_apikey" "app" {
+  display_name = local.name
   owner_type   = "service-account"
-  owner_id     = temporalcloud_service_account.api.id
+  owner_id     = temporalcloud_service_account.app.id
   expiry_time  = var.temporal_api_key_expiry
 }

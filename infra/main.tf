@@ -28,9 +28,9 @@ resource "azurerm_application_insights" "main" {
   application_type    = "web"
 }
 
-# The API's identity. It signs in to Azure SQL with it, so there is no database password anywhere.
-resource "azurerm_user_assigned_identity" "api" {
-  name                = "id-${local.name}-api"
+# The apps' identity. The API and the worker sign in to Azure SQL with it, so there is no database password anywhere.
+resource "azurerm_user_assigned_identity" "app" {
+  name                = "id-${local.name}"
   location            = azurerm_resource_group.main.location
   resource_group_name = azurerm_resource_group.main.name
 }
@@ -42,11 +42,11 @@ resource "azurerm_mssql_server" "main" {
   version             = "12.0"
   minimum_tls_version = "1.2"
 
-  # The API's identity is the server's Entra admin so that it can migrate at startup. Once a migration
-  # bundle runs in the pipeline, make the pipeline the admin and give the API a database user with data rights only.
+  # The apps' identity is the server's Entra admin so that the API can migrate at startup. Once a migration
+  # bundle runs in the pipeline, make the pipeline the admin and give the apps a database user with data rights only.
   azuread_administrator {
-    login_username              = azurerm_user_assigned_identity.api.name
-    object_id                   = azurerm_user_assigned_identity.api.principal_id
+    login_username              = azurerm_user_assigned_identity.app.name
+    object_id                   = azurerm_user_assigned_identity.app.principal_id
     azuread_authentication_only = true
   }
 }
@@ -75,6 +75,21 @@ resource "azurerm_container_app_environment" "main" {
   log_analytics_workspace_id = azurerm_log_analytics_workspace.main.id
 }
 
+locals {
+  # What both apps are configured with, besides their two secrets.
+  app_settings = {
+    ConnectionStrings__Shop = "Server=tcp:${azurerm_mssql_server.main.fully_qualified_domain_name},1433;Database=${azurerm_mssql_database.shop.name};Authentication=Active Directory Managed Identity;User Id=${azurerm_user_assigned_identity.app.client_id};Encrypt=True"
+    Temporal__Address       = temporalcloud_namespace.main.endpoints.grpc_address
+    Temporal__Namespace     = temporalcloud_namespace.main.id
+  }
+
+  # Settings that come from the apps' secrets, by secret name.
+  app_secret_settings = {
+    Temporal__ApiKey                      = "temporal-api-key"
+    APPLICATIONINSIGHTS_CONNECTION_STRING = "appinsights-connection-string"
+  }
+}
+
 resource "azurerm_container_app" "api" {
   name                         = "ca-${local.name}-api"
   container_app_environment_id = azurerm_container_app_environment.main.id
@@ -83,12 +98,12 @@ resource "azurerm_container_app" "api" {
 
   identity {
     type         = "UserAssigned"
-    identity_ids = [azurerm_user_assigned_identity.api.id]
+    identity_ids = [azurerm_user_assigned_identity.app.id]
   }
 
   secret {
     name  = "temporal-api-key"
-    value = temporalcloud_apikey.api.token
+    value = temporalcloud_apikey.app.token
   }
 
   secret {
@@ -116,33 +131,24 @@ resource "azurerm_container_app" "api" {
 
     container {
       name   = "api"
-      image  = var.image
+      image  = "${var.image_prefix}-api:latest"
       cpu    = 0.5
       memory = "1Gi"
 
-      env {
-        name  = "ConnectionStrings__Shop"
-        value = "Server=tcp:${azurerm_mssql_server.main.fully_qualified_domain_name},1433;Database=${azurerm_mssql_database.shop.name};Authentication=Active Directory Managed Identity;User Id=${azurerm_user_assigned_identity.api.client_id};Encrypt=True"
+      dynamic "env" {
+        for_each = local.app_settings
+        content {
+          name  = env.key
+          value = env.value
+        }
       }
 
-      env {
-        name  = "Temporal__Address"
-        value = temporalcloud_namespace.main.endpoints.grpc_address
-      }
-
-      env {
-        name  = "Temporal__Namespace"
-        value = temporalcloud_namespace.main.id
-      }
-
-      env {
-        name        = "Temporal__ApiKey"
-        secret_name = "temporal-api-key"
-      }
-
-      env {
-        name        = "APPLICATIONINSIGHTS_CONNECTION_STRING"
-        secret_name = "appinsights-connection-string"
+      dynamic "env" {
+        for_each = local.app_secret_settings
+        content {
+          name        = env.key
+          secret_name = env.value
+        }
       }
 
       # Container Apps ends TLS and forwards plain HTTP. Trusting its X-Forwarded-Proto makes the app see https, so
@@ -178,6 +184,62 @@ resource "azurerm_container_app" "api" {
   }
 
   # The deploy workflow rolls out new images; Terraform owns everything else.
+  lifecycle {
+    ignore_changes = [template[0].container[0].image]
+  }
+}
+
+# The worker runs every order's workflow and activities, and serves nothing: no ingress, and so no probes, which
+# Azure only runs for an app with ingress. It scales apart from the API (ADR 8).
+resource "azurerm_container_app" "worker" {
+  name                         = "ca-${local.name}-worker"
+  container_app_environment_id = azurerm_container_app_environment.main.id
+  resource_group_name          = azurerm_resource_group.main.name
+  revision_mode                = "Single"
+
+  identity {
+    type         = "UserAssigned"
+    identity_ids = [azurerm_user_assigned_identity.app.id]
+  }
+
+  secret {
+    name  = "temporal-api-key"
+    value = temporalcloud_apikey.app.token
+  }
+
+  secret {
+    name  = "appinsights-connection-string"
+    value = azurerm_application_insights.main.connection_string
+  }
+
+  template {
+    min_replicas = var.worker_replicas
+    max_replicas = var.worker_replicas
+
+    container {
+      name   = "worker"
+      image  = "${var.image_prefix}-worker:latest"
+      cpu    = 0.25
+      memory = "0.5Gi"
+
+      dynamic "env" {
+        for_each = local.app_settings
+        content {
+          name  = env.key
+          value = env.value
+        }
+      }
+
+      dynamic "env" {
+        for_each = local.app_secret_settings
+        content {
+          name        = env.key
+          secret_name = env.value
+        }
+      }
+    }
+  }
+
   lifecycle {
     ignore_changes = [template[0].container[0].image]
   }

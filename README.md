@@ -207,15 +207,20 @@ The shortcuts are deliberate, and each has a known ceiling and a way past it.
 
 ## Deploy it
 
-Azure Container Apps runs the API and its worker, Azure SQL holds the data, and Temporal Cloud runs the workflows.
-[Terraform](infra/) creates all three, and the [Deploy workflow](.github/workflows/deploy.yml) ships every commit
-that passes CI on `main`, then runs the Postman collection against it.
+Azure Container Apps runs the API and the worker as two apps, Azure SQL holds the data, and Temporal Cloud runs the
+workflows. [Terraform](infra/) creates all three, and the [Deploy workflow](.github/workflows/deploy.yml) ships every
+commit that passes CI on `main`, then runs the Postman collection against it.
 
-1. Push the repository to GitHub. CI runs, and Deploy pushes the image to `ghcr.io/<owner>/<repo>`; its Azure steps
-   are skipped until step 4.
-2. Make that package public (package settings, *Change visibility*), so Container Apps can pull it without
+1. Push the repository to GitHub, and turn on CodeQL's default setup and secret scanning with push protection
+   (*Settings*, *Advanced Security*). CI runs, and Deploy pushes two images, `ghcr.io/<owner>/<repo>-api` and
+   `-worker`; its Azure steps are skipped until step 4.
+2. Make both packages public (package settings, *Change visibility*), so Container Apps can pull them without
    credentials.
-3. Create the infrastructure. It needs the Azure CLI signed in and a Temporal Cloud account API key:
+3. Create the infrastructure. It needs the Azure CLI signed in as an Owner or User Access Administrator of the
+   subscription, who may also register Entra applications: Terraform gives the deploy workflow a role and an app
+   registration. It also needs a Temporal Cloud account API key. In `terraform.tfvars`, `image_prefix` is all
+   lowercase, and `github_repository` is the repository as GitHub's OIDC tokens name it:
+   `gh api repos/<owner>/<repo> --jq '"\(.owner.login)@\(.owner.id)/\(.name)@\(.id)"'`.
 
    ```shell
    az login
