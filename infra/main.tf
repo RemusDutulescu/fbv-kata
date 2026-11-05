@@ -42,7 +42,7 @@ resource "azurerm_mssql_server" "main" {
   version             = "12.0"
   minimum_tls_version = "1.2"
 
-  # ponytail: the API's identity is the server's Entra admin so that it can migrate at startup. Once a migration
+  # The API's identity is the server's Entra admin so that it can migrate at startup. Once a migration
   # bundle runs in the pipeline, make the pipeline the admin and give the API a database user with data rights only.
   azuread_administrator {
     login_username              = azurerm_user_assigned_identity.api.name
@@ -51,7 +51,7 @@ resource "azurerm_mssql_server" "main" {
   }
 }
 
-# ponytail: lets Azure services reach the server's public endpoint; signing in still needs Entra. A VNet-integrated
+# Lets Azure services reach the server's public endpoint; signing in still needs Entra. A VNet-integrated
 # Container Apps environment with a private endpoint for SQL closes it.
 resource "azurerm_mssql_firewall_rule" "azure_services" {
   name             = "AllowAzureServices"

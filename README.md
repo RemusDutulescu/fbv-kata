@@ -36,13 +36,7 @@ dotnet test
 ```
 
 Docker must be running. The domain tests are pure. The API tests start a real SQL Server (Testcontainers) and a real
-Temporal dev server, then drive the application as `Program.cs` composes it. They cover:
-
-- the workflow against scripted activities;
-- the replay of a recorded workflow history;
-- persistence, including the concurrency conflict;
-- the HTTP contract;
-- one trace crossing the Temporal boundary.
+Temporal dev server, then drive the application as `Program.cs` composes it.
 
 The [Postman collection](postman/) walks through the brief's example and the edge cases, asserting every response.
 Import it with the `local` environment, or run it headless against the running stack:
@@ -115,7 +109,8 @@ The brief's order, as it is sent:
 
 Errors are RFC 9457 problem details with a trace id. A contract violation names the JSON path
 (`"path": "$.items[1]"`), and validation errors are keyed by field (`"items[2].title"`). The OpenAPI document is
-generated from the code and its XML comments, so every status code above is in it.
+generated from the handlers' result types, with descriptions from their XML comments, so every status code above is
+in it.
 
 ## Adding a rule
 
@@ -140,26 +135,23 @@ Each one is here because it solves a problem this code has.
 | Pattern | Where | What it buys |
 | --- | --- | --- |
 | Strategy | [`IPurchaseOrderRule`](src/FunBooksAndVideos.Domain/Rules/IPurchaseOrderRule.cs) and the two rules | A new rule is a new class; the processor is closed for modification |
-| Command | [`FulfilmentCommand`](src/FunBooksAndVideos.Domain/Fulfilment/FulfilmentCommands.cs): rules create commands, the workflow invokes them honouring `Timing`, [`IFulfilment`](src/FunBooksAndVideos.Domain/Fulfilment/IFulfilment.cs) receives them | Deciding is separate from doing; double dispatch means a new effect won't compile until every receiver handles it |
+| Command, dispatched Visitor-style | [`FulfilmentCommand`](src/FunBooksAndVideos.Domain/Fulfilment/FulfilmentCommands.cs): rules create commands, the workflow invokes them honouring `Timing`, and each command calls its own [`IFulfilment`](src/FunBooksAndVideos.Domain/Fulfilment/IFulfilment.cs) method | Deciding is separate from doing; with the receiver as the visitor, a new effect won't compile until every receiver handles it |
 | Proxy | [`ActivityFulfilment`](src/FunBooksAndVideos.Api/Processing/ActivityFulfilment.cs) | The receiver's interface, with each call made a durable, retried activity |
 | Decorator | [`TracedRule`](src/FunBooksAndVideos.Api/Observability/TracedRule.cs) | Every rule evaluation is a span, and the rules know nothing about tracing |
-| Process manager (orchestrated saga) | [`PurchaseOrderWorkflow`](src/FunBooksAndVideos.Api/Processing/PurchaseOrderWorkflow.cs) | A durable, multi-step process with forward recovery |
+| Process manager | [`PurchaseOrderWorkflow`](src/FunBooksAndVideos.Api/Processing/PurchaseOrderWorkflow.cs) | A durable, multi-step process with forward recovery; [ADR 4](docs/adr/0004-forward-recovery-no-compensation.md) says when it would need a saga's compensations |
 | Idempotent receiver | [`OrderSubmitter`](src/FunBooksAndVideos.Api/Processing/OrderSubmitter.cs): the stored order, the workflow and update ids, primary keys | A retry never activates or ships twice |
 | Result | [`SubmissionOutcome`](src/FunBooksAndVideos.Api/Processing/SubmissionOutcome.cs), mapped by [`Respond`](src/FunBooksAndVideos.Api/Endpoints/PurchaseOrderEndpoints.cs) | Expected outcomes are values, not exceptions, each with one status code |
 | Aggregate | [`PurchaseOrder`](src/FunBooksAndVideos.Domain/PurchaseOrder.cs), [`Customer`](src/FunBooksAndVideos.Domain/Customer.cs) | Invariants live in one place: an invalid order can't be constructed |
 | Value object | [`PurchaseOrderId`, `CustomerId`](src/FunBooksAndVideos.Domain/Identifiers.cs), [`Money`](src/FunBooksAndVideos.Domain/Money.cs), [`MembershipType`](src/FunBooksAndVideos.Domain/MembershipType.cs) | Ids can't be swapped, money is never a bare decimal, and Premium is literally both clubs |
-| Liskov substitution | [`ProductLine.IsPhysical`](src/FunBooksAndVideos.Domain/ItemLines.cs) | BR2 asks "is it physical?", never "is it a book?" |
+| Polymorphism, no type checks | [`ProductLine.IsPhysical`](src/FunBooksAndVideos.Domain/ItemLines.cs) | BR2 asks "is it physical?", never "is it a book?" |
 | Optimistic concurrency | `rowversion` on customers, plus Temporal's retry | Two simultaneous orders can't lose a club |
-| Unit of work | One `DbContext` per activity | Each step commits atomically |
 | Anti-corruption layer | [`Contracts/`](src/FunBooksAndVideos.Api/Contracts/), mapped by hand | The domain can change without breaking app versions already in the field |
-| Pipeline | [`ValidationFilter<T>`](src/FunBooksAndVideos.Api/Validation/ValidationFilter.cs) | An invalid request never reaches the handler |
-| Options | [`TemporalOptions`](src/FunBooksAndVideos.Api/Processing/TemporalOptions.cs) with `ValidateOnStart` | Bad configuration fails at startup, not on the first order |
-| Object mother, test data builder | [`PurchaseOrders`](tests/FunBooksAndVideos.Domain.Tests/PurchaseOrders.cs) | Tests read like the brief |
+| Pipeline (endpoint filter) | [`ValidationFilter<T>`](src/FunBooksAndVideos.Api/Validation/ValidationFilter.cs) | An invalid request never reaches the handler |
+| Object mother | [`PurchaseOrders`](tests/FunBooksAndVideos.Domain.Tests/PurchaseOrders.cs) | Tests read like the brief |
 
 Left out on purpose:
 
 - **Specification**: each rule's condition is one line.
-- **Visitor**: the commands' double dispatch already gives the compile-time check.
 - **Chain of responsibility for the rules**: the rules are independent and all of them apply.
 - **MediatR, AutoMapper**: dependencies, now commercially licensed, for what DI and a page of mapping code already do.
 - **Generic repository**: the `DbContext` already is one, with its unit of work.
@@ -191,13 +183,15 @@ Architecture decision records, in [docs/adr](docs/adr/):
 
 ## Limits and next steps
 
-The shortcuts are deliberate and marked `ponytail:` in the code with their ceiling and the way past it.
+The shortcuts are deliberate, and each has a known ceiling and a way past it.
 
 - **No authentication.** In production, a gateway authenticates the app, and orders and memberships are scoped to the
   signed-in customer. Reading an order by id would check that the caller owns it.
-- **One replica.** It hosts the Temporal worker and migrates the database at startup. To scale, split the worker out
-  and run an EF migration bundle in the pipeline. The API's identity then needs data rights only, instead of being
-  the SQL admin.
+- **One replica**, the cheapest setup. More replicas could share the task queue, and EF Core locks the startup
+  migration, but the rate limit lives in memory: each replica would allow its own 30 a minute. Move it to a gateway
+  first.
+- **The API's identity is the SQL admin**, so that it can migrate at startup. An EF migration bundle in the pipeline
+  would leave it with data rights only.
 - **Public SQL endpoint.** Azure services can reach the server, though signing in still needs Entra. VNet integration
   with a private endpoint closes it.
 - **Every trace is kept.** Add sampling when Application Insights ingestion starts to cost.

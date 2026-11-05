@@ -17,7 +17,7 @@ public enum Timing
 /// </summary>
 public abstract record FulfilmentCommand(Timing Timing)
 {
-    /// <summary>Double dispatch: each command picks its receiver method, so the invoker never switches on types.</summary>
+    /// <summary>Double dispatch, as in Visitor: each command calls its own receiver method, so the invoker never switches on types.</summary>
     public abstract Task ExecuteAsync(IFulfilment receiver);
 }
 

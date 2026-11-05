@@ -26,7 +26,7 @@ internal sealed class ClientErrorHandler(IProblemDetailsService problems) : IExc
             // No body, too big a body: the status says it all, and the framework's wording is meant for developers.
             BadHttpRequestException badRequest => new ProblemDetails { Status = badRequest.StatusCode },
 
-            // Defence in depth: validation should have caught it, and the domain refuses it regardless.
+            // The domain refused the input: a blank or over-long id in a URL, or anything validation missed.
             DomainException domain => new ProblemDetails { Status = StatusCodes.Status400BadRequest, Detail = domain.Message },
             _ => null,
         };

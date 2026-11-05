@@ -1,7 +1,5 @@
 namespace FunBooksAndVideos.Domain;
 
-// The whole item-line hierarchy lives in one file so it can be read at a glance.
-
 /// <summary>One line of a purchase order: a product or a membership request.</summary>
 public abstract record ItemLine;
 

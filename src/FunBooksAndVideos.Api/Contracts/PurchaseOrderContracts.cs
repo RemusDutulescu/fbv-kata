@@ -2,10 +2,9 @@ using System.Text.Json.Serialization;
 
 namespace FunBooksAndVideos.Api.Contracts;
 
-// The public HTTP contract, versioned under /v1. It is kept apart from the domain on purpose (an anti-corruption
-// layer): the domain can be refactored without breaking an app version that is already on someone's phone.
-// The declared types are the contract: every field is required and only ShippingSlip may be null, which the
-// serializer enforces (HttpApi.StrictJson) and the OpenAPI document states.
+// The public HTTP contract, versioned under /v1 and kept apart from the domain (an anti-corruption layer). Every field
+// is required and only ShippingSlip may be null, which the serializer enforces (HttpApi.StrictJson) and the OpenAPI
+// document states.
 
 /// <summary>A purchase order to process.</summary>
 /// <param name="Id">The order id from the shop. It is also the idempotency key: resubmitting it is always safe.</param>
@@ -48,7 +47,7 @@ public enum OrderStatusDto
 }
 
 /// <summary>A purchase order and where its fulfilment stands.</summary>
-/// <param name="ShippingSlip">The shipping slip, once generated. Absent while pending, and for orders with nothing to ship.</param>
+/// <param name="ShippingSlip">The shipping slip, once generated: null until then, and for orders with nothing to ship.</param>
 public sealed record PurchaseOrderResponse(
     string Id,
     string CustomerId,

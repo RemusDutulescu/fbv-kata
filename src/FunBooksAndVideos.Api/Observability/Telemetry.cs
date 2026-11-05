@@ -19,7 +19,7 @@ public static class Telemetry
 
     public static IServiceCollection AddTelemetry(this IServiceCollection services, IConfiguration configuration)
     {
-        // ponytail: every trace is kept; add a sampler when the traffic makes Application Insights ingestion cost.
+        // Every trace is kept; add a sampler when the traffic makes Application Insights ingestion cost.
         services.AddOpenTelemetry()
             .ConfigureResource(resource => resource.AddService(ServiceName))
             .WithTracing(tracing =>

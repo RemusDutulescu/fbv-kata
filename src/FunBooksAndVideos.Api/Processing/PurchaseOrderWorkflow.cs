@@ -8,10 +8,8 @@ using Temporalio.Workflows;
 namespace FunBooksAndVideos.Api.Processing;
 
 /// <summary>
-/// Process manager for one purchase order (an orchestrated saga), and the invoker of its fulfilment commands.
-/// Its id is derived from the order id, so a retried submission can never start a second one.
-/// Recovery is forward-only: every step is idempotent and retried until it succeeds, because once an order has
-/// passed validation nothing in this domain can fail for a business reason, so there is nothing to compensate.
+/// Process manager for one purchase order, and the invoker of its fulfilment commands. Its id comes from the order id
+/// (ADR 3), and its recovery is forward-only: every step is idempotent and retried until it succeeds (ADR 4).
 /// </summary>
 [Workflow]
 public sealed class PurchaseOrderWorkflow
@@ -59,7 +57,7 @@ public sealed class PurchaseOrderWorkflow
 
 internal static class ActivityDefaults
 {
-    // ponytail: unlimited retries suit transient faults; a step that keeps failing stays visible in the Temporal UI
+    // Unlimited retries suit transient faults; a step that keeps failing stays visible in the Temporal UI
     // for an operator instead of failing a paid order. Add MaximumAttempts plus an alert if that ever needs a ceiling.
     public static readonly ActivityOptions Options = new()
     {

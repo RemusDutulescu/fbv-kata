@@ -36,7 +36,8 @@ public static class HttpApi
             (_, member, _) => member is null ? null : JsonNamingPolicy.CamelCase.ConvertName(member.Name);
         services.AddSingleton<IValidator<SubmitPurchaseOrderRequest>, SubmitPurchaseOrderRequestValidator>();
 
-        // Every submission starts a workflow, and workflows cost Temporal Cloud actions: a public endpoint needs a ceiling.
+        // Every submission starts a workflow, and workflows cost Temporal Cloud actions, so a public endpoint needs a
+        // ceiling. One window shared by every client: it caps what the service can be made to spend, not who gets a turn.
         services.AddRateLimiter(limiter =>
         {
             limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;

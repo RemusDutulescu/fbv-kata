@@ -40,4 +40,5 @@ including per-type rules for the polymorphic lines and the decimal precision of 
 - A client gets one error format for each kind of mistake, and every 400 says where the problem is.
 - The serializer's messages name the contract's .NET types, as ASP.NET Core MVC's do by default. Hiding them would
   take custom wording.
-- A 256 KB body limit and a rate limit (30 submissions a minute, configurable) bound what one client can cost.
+- A 256 KB body limit caps what one request can cost. The rate limit (30 submissions a minute, configurable) is one
+  window shared by every client. It caps what the service can be made to spend, not who gets a turn.

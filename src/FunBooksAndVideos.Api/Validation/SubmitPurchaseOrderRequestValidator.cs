@@ -5,9 +5,8 @@ using FunBooksAndVideos.Domain;
 namespace FunBooksAndVideos.Api.Validation;
 
 /// <summary>
-/// Contract validation, the second of four layers: strict JSON (shape), then this (values), then the domain's own
-/// invariants, then the stored order (409). It reports every problem at once, keyed by JSON path, so a client can
-/// fix them in one go.
+/// Contract validation: the values that the JSON's shape can't express (ADR 6). It reports every problem at once,
+/// keyed by JSON path, so a client can fix them in one go.
 /// </summary>
 public sealed class SubmitPurchaseOrderRequestValidator : AbstractValidator<SubmitPurchaseOrderRequest>
 {

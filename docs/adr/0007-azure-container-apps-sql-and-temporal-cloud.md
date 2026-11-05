@@ -10,8 +10,7 @@ long-lived secrets to leak.
 ## Decision
 
 - **Azure Container Apps** runs one container, with HTTPS ingress, health probes and a managed identity, and no
-  Kubernetes to operate. It runs one replica, because that replica hosts the worker and migrates the database at
-  startup.
+  Kubernetes to operate. It runs one replica, the cheapest setup; the README's limits say what scaling out would take.
 - **Azure SQL** (Basic) is the same engine as local development and the tests. It uses Entra-only authentication:
   the app signs in with its managed identity, so no database password exists.
 - **Temporal Cloud** is managed Temporal. The app authenticates with an API key owned by a service account that can
@@ -30,7 +29,7 @@ long-lived secrets to leak.
 
 ## Consequences
 
-The shortcuts are marked `ponytail:` in [infra/main.tf](../../infra/main.tf) and listed in the README:
+The shortcuts are listed in the README, and the first two are commented in [infra/main.tf](../../infra/main.tf):
 
 - the app's identity is the SQL admin, so that it can migrate;
 - the SQL endpoint is reachable by Azure services (signing in still needs Entra);

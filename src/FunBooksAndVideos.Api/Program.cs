@@ -18,7 +18,8 @@ builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = 
 
 var app = builder.Build();
 
-// ponytail: migrations at startup suit one replica; with several, run an EF migration bundle in the pipeline instead.
+// Migrating at startup needs the app's identity to be the SQL admin; a migration bundle run by the pipeline would
+// leave it data rights only.
 await using (var scope = app.Services.CreateAsyncScope())
     await scope.ServiceProvider.GetRequiredService<ShopDbContext>().Database.MigrateAsync();
 
