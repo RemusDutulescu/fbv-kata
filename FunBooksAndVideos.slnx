@@ -1,0 +1,16 @@
+<Solution>
+  <Folder Name="/Solution Items/">
+    <File Path=".editorconfig" />
+    <File Path="Directory.Build.props" />
+    <File Path="Directory.Packages.props" />
+    <File Path="global.json" />
+  </Folder>
+  <Folder Name="/src/">
+    <Project Path="src/FunBooksAndVideos.Api/FunBooksAndVideos.Api.csproj" />
+    <Project Path="src/FunBooksAndVideos.Domain/FunBooksAndVideos.Domain.csproj" />
+  </Folder>
+  <Folder Name="/tests/">
+    <Project Path="tests/FunBooksAndVideos.Api.Tests/FunBooksAndVideos.Api.Tests.csproj" />
+    <Project Path="tests/FunBooksAndVideos.Domain.Tests/FunBooksAndVideos.Domain.Tests.csproj" />
+  </Folder>
+</Solution>
