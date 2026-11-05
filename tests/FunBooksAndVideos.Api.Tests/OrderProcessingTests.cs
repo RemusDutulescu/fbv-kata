@@ -26,7 +26,7 @@ public sealed class OrderProcessingTests(AppFixture fixture)
 
         var outcome = await SubmitAsync(order);
 
-        Assert.IsType<SubmissionOutcome.Created>(outcome);
+        Assert.Equal(SubmissionOutcome.Created, outcome);
         // BR1: active the moment the caller hears back, not eventually.
         Assert.Equal(MembershipType.BookClub, await MembershipsAsync(order.CustomerId));
 
@@ -43,8 +43,8 @@ public sealed class OrderProcessingTests(AppFixture fixture)
     {
         var order = AnOrder(NewId(), new CustomerId(NewId()), MembershipType.VideoClub);
 
-        Assert.IsType<SubmissionOutcome.Created>(await SubmitAsync(order));
-        Assert.IsType<SubmissionOutcome.Replayed>(await SubmitAsync(order));
+        Assert.Equal(SubmissionOutcome.Created, await SubmitAsync(order));
+        Assert.Equal(SubmissionOutcome.Replayed, await SubmitAsync(order));
 
         await WorkflowFinishedAsync(order.Id);
         await using var db = fixture.CreateDbContext();
@@ -57,8 +57,8 @@ public sealed class OrderProcessingTests(AppFixture fixture)
         var id = NewId();
         var customer = new CustomerId(NewId());
 
-        Assert.IsType<SubmissionOutcome.Created>(await SubmitAsync(AnOrder(id, customer, MembershipType.BookClub)));
-        Assert.IsType<SubmissionOutcome.Conflict>(await SubmitAsync(AnOrder(id, customer, MembershipType.VideoClub)));
+        Assert.Equal(SubmissionOutcome.Created, await SubmitAsync(AnOrder(id, customer, MembershipType.BookClub)));
+        Assert.Equal(SubmissionOutcome.Conflict, await SubmitAsync(AnOrder(id, customer, MembershipType.VideoClub)));
     }
 
     [Fact]
@@ -71,7 +71,7 @@ public sealed class OrderProcessingTests(AppFixture fixture)
             SubmitAsync(AnOrder(NewId(), customer, MembershipType.BookClub)),
             SubmitAsync(AnOrder(NewId(), customer, MembershipType.VideoClub)));
 
-        Assert.All(outcomes, outcome => Assert.IsType<SubmissionOutcome.Created>(outcome));
+        Assert.All(outcomes, outcome => Assert.Equal(SubmissionOutcome.Created, outcome));
         Assert.Equal(MembershipType.Premium, await MembershipsAsync(customer));
     }
 

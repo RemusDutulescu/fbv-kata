@@ -9,9 +9,6 @@ public sealed class ShippingSlipRule : IPurchaseOrderRule
 
     public IEnumerable<FulfilmentCommand> Evaluate(PurchaseOrder order)
     {
-        ArgumentNullException.ThrowIfNull(order);
-
-        // "Physical" is asked of the product, never inferred from its type.
         var physical = order.Lines.OfType<ProductLine>().Where(line => line.IsPhysical).ToArray();
 
         // BR2 doesn't ask for immediacy, so the slip is produced after the order is acknowledged.

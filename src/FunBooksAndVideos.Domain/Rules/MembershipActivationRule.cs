@@ -9,8 +9,6 @@ public sealed class MembershipActivationRule : IPurchaseOrderRule
 
     public IEnumerable<FulfilmentCommand> Evaluate(PurchaseOrder order)
     {
-        ArgumentNullException.ThrowIfNull(order);
-
         // One activation for everything requested: book-club and video-club lines together activate Premium, once.
         var requested = order.Lines
             .OfType<MembershipLine>()

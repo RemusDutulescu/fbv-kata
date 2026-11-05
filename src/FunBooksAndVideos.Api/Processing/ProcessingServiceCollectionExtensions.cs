@@ -19,13 +19,12 @@ public static class ProcessingServiceCollectionExtensions
         var section = configuration.GetSection(TemporalOptions.Section);
         services.AddOptions<TemporalOptions>().Bind(section).ValidateDataAnnotations().ValidateOnStart();
 
-        // The business rules. A new rule is one class plus one line here; the processor never changes.
+        // The business rules.
         services.AddRule<MembershipActivationRule>();
         services.AddRule<ShippingSlipRule>();
         services.AddSingleton<PurchaseOrderProcessor>();
 
-        services.AddTemporalClient(_ => { });
-        services.AddOptions<TemporalClientConnectOptions>().Configure<IOptions<TemporalOptions>>((client, temporal) =>
+        services.AddTemporalClient().Configure<IOptions<TemporalOptions>>((client, temporal) =>
         {
             client.TargetHost = temporal.Value.Address;
             client.Namespace = temporal.Value.Namespace;

@@ -140,7 +140,7 @@ public sealed class PurchaseOrderApiTests(AppFixture fixture)
     public void A_slow_acknowledgement_answers_202_with_where_to_look()
     {
         // Provoking this end to end needs a stalled worker; the mapping is pure, so test it directly.
-        var result = PurchaseOrderEndpoints.Respond(new SubmissionOutcome.Pending(new PurchaseOrderId("3344656")), stored: null);
+        var result = PurchaseOrderEndpoints.Respond(SubmissionOutcome.Pending, new PurchaseOrderId("3344656"), stored: null);
 
         Assert.Equal($"{Orders}/3344656", Assert.IsType<Accepted>(result.Result).Location);
     }

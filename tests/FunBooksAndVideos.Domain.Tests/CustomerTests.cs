@@ -20,8 +20,9 @@ public sealed class CustomerTests
     [Fact]
     public void Activating_a_membership_twice_changes_nothing()
     {
-        var customer = NewCustomer(MembershipType.BookClub);
+        var customer = NewCustomer();
 
+        customer.Activate(MembershipType.BookClub);
         customer.Activate(MembershipType.BookClub);
 
         Assert.Equal(MembershipType.BookClub, customer.Memberships);
@@ -30,8 +31,9 @@ public sealed class CustomerTests
     [Fact]
     public void Premium_includes_a_club_the_customer_already_has()
     {
-        var customer = NewCustomer(MembershipType.VideoClub);
+        var customer = NewCustomer();
 
+        customer.Activate(MembershipType.VideoClub);
         customer.Activate(MembershipType.Premium);
 
         Assert.Equal(MembershipType.Premium, customer.Memberships);
@@ -41,6 +43,5 @@ public sealed class CustomerTests
     public void Only_real_memberships_can_be_activated() =>
         Assert.Throws<DomainException>(() => NewCustomer().Activate(MembershipType.None));
 
-    private static Customer NewCustomer(MembershipType memberships = MembershipType.None) =>
-        new(new CustomerId("4567890"), memberships);
+    private static Customer NewCustomer() => new(new CustomerId("4567890"));
 }

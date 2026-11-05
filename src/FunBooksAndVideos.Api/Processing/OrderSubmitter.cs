@@ -16,15 +16,12 @@ public sealed class OrderSubmitter(ITemporalClient temporal, ShopDbContext db, I
 {
     public async Task<SubmissionOutcome> SubmitAsync(PurchaseOrder order, CancellationToken cancellationToken)
     {
-        ArgumentNullException.ThrowIfNull(order);
         var submission = OrderSubmission.From(order);
 
         var storedHash = await StoredHashAsync(order.Id, cancellationToken);
         if (storedHash is not null)
         {
-            return storedHash == submission.PayloadHash
-                ? new SubmissionOutcome.Replayed(order.Id)
-                : new SubmissionOutcome.Conflict(order.Id);
+            return storedHash == submission.PayloadHash ? SubmissionOutcome.Replayed : SubmissionOutcome.Conflict;
         }
 
         var start = WithStartWorkflowOperation.Create(
@@ -50,21 +47,19 @@ public sealed class OrderSubmitter(ITemporalClient temporal, ShopDbContext db, I
         catch (RpcTimeoutOrCanceledException) when (!cancellationToken.IsCancellationRequested)
         {
             // Slower than promised. The workflow carries on regardless, so tell the caller where to look.
-            return new SubmissionOutcome.Pending(order.Id);
+            return SubmissionOutcome.Pending;
         }
         catch (WorkflowAlreadyStartedException)
         {
             // A finished workflow already used this id but its order isn't stored (a wiped database): the id is spent.
-            return new SubmissionOutcome.Conflict(order.Id);
+            return SubmissionOutcome.Conflict;
         }
 
         storedHash = await StoredHashAsync(order.Id, cancellationToken)
             ?? throw new InvalidOperationException($"Order {order.Id} was acknowledged but is not stored.");
 
         // A concurrent submission with the same id but different content may have started the workflow first.
-        return storedHash == submission.PayloadHash
-            ? new SubmissionOutcome.Created(order.Id)
-            : new SubmissionOutcome.Conflict(order.Id);
+        return storedHash == submission.PayloadHash ? SubmissionOutcome.Created : SubmissionOutcome.Conflict;
     }
 
     private Task<string?> StoredHashAsync(PurchaseOrderId id, CancellationToken cancellationToken) =>

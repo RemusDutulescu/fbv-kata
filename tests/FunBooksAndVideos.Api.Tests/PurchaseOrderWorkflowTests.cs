@@ -62,7 +62,7 @@ public sealed class PurchaseOrderWorkflowTests(AppFixture fixture)
             // The activation gate stays shut, so BR1's work can't finish within the second the caller waits.
             var outcome = await new OrderSubmitter(fixture.Temporal, db, options).SubmitAsync(order, TestContext.Current.CancellationToken);
 
-            Assert.IsType<SubmissionOutcome.Pending>(outcome);
+            Assert.Equal(SubmissionOutcome.Pending, outcome);
 
             activities.ActivationGate.SetResult();
             await fixture.Temporal.GetWorkflowHandle(PurchaseOrderWorkflow.IdFor(order.Id)).GetResultAsync();

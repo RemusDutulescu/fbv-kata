@@ -61,8 +61,9 @@ public static class PurchaseOrderEndpoints
     internal static async Task<Results<Created<PurchaseOrderResponse>, Ok<PurchaseOrderResponse>, Accepted, ProblemHttpResult>> SubmitAsync(
         SubmitPurchaseOrderRequest request, OrderSubmitter submitter, ShopDbContext db, CancellationToken cancellationToken)
     {
-        var outcome = await submitter.SubmitAsync(request.ToDomain(), cancellationToken);
-        return Respond(outcome, await FindAsync(db, outcome.Id, cancellationToken));
+        var order = request.ToDomain();
+        var outcome = await submitter.SubmitAsync(order, cancellationToken);
+        return Respond(outcome, order.Id, await FindAsync(db, order.Id, cancellationToken));
     }
 
     /// <summary>Get a purchase order and where its fulfilment stands.</summary>
@@ -75,20 +76,18 @@ public static class PurchaseOrderEndpoints
             ? TypedResults.Ok(order)
             : TypedResults.NotFound();
 
-    /// <summary>One status per outcome. Pure, so every branch is unit tested, including a 202 that is hard to provoke.</summary>
-    /// <param name="outcome">What the submission came to.</param>
-    /// <param name="stored">The order stored under the outcome's id, if there is one yet.</param>
+    /// <summary>One status per outcome. Pure, so an outcome that is hard to provoke end to end (202) is unit tested.</summary>
     public static Results<Created<PurchaseOrderResponse>, Ok<PurchaseOrderResponse>, Accepted, ProblemHttpResult> Respond(
-        SubmissionOutcome outcome, PurchaseOrderResponse? stored) => (outcome, stored) switch
+        SubmissionOutcome outcome, PurchaseOrderId id, PurchaseOrderResponse? stored) => (outcome, stored) switch
     {
-        (SubmissionOutcome.Created, { } order) => TypedResults.Created(LocationOf(outcome.Id), order),
+        (SubmissionOutcome.Created, { } order) => TypedResults.Created(LocationOf(id), order),
         (SubmissionOutcome.Replayed, { } order) => TypedResults.Ok(order),
-        (SubmissionOutcome.Pending, _) => TypedResults.Accepted(LocationOf(outcome.Id)),
+        (SubmissionOutcome.Pending, _) => TypedResults.Accepted(LocationOf(id)),
 
         // The stored order is never echoed here: it belongs to whoever used the id first.
         (SubmissionOutcome.Conflict, _) => TypedResults.Problem(
             statusCode: StatusCodes.Status409Conflict,
-            detail: $"Purchase order {outcome.Id} was already submitted with different contents."),
+            detail: $"Purchase order {id} was already submitted with different contents."),
 
         _ => throw new UnreachableException($"{outcome} has no stored order."),
     };

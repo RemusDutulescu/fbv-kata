@@ -6,14 +6,11 @@ namespace FunBooksAndVideos.Domain;
 /// </summary>
 public sealed class Customer
 {
-    public Customer(CustomerId id, MembershipType memberships = MembershipType.None)
+    public Customer(CustomerId id)
     {
         ArgumentNullException.ThrowIfNull(id);
-        if (memberships != MembershipType.None && !memberships.IsValid())
-            throw new DomainException($"'{memberships}' is not a set of memberships.");
 
         Id = id;
-        Memberships = memberships;
     }
 
     public CustomerId Id { get; }

@@ -9,10 +9,5 @@ namespace FunBooksAndVideos.Domain.Rules;
 /// </summary>
 public sealed class PurchaseOrderProcessor(IEnumerable<IPurchaseOrderRule> rules)
 {
-    public IReadOnlyList<FulfilmentCommand> Process(PurchaseOrder order)
-    {
-        ArgumentNullException.ThrowIfNull(order);
-
-        return [.. rules.SelectMany(rule => rule.Evaluate(order))];
-    }
+    public IReadOnlyList<FulfilmentCommand> Process(PurchaseOrder order) => [.. rules.SelectMany(rule => rule.Evaluate(order))];
 }
