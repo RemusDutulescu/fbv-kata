@@ -1,5 +1,16 @@
+using FunBooksAndVideos.Api.Persistence;
+using Microsoft.EntityFrameworkCore;
+
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddDbContext<ShopDbContext>(options => options.UseSqlServer(
+    builder.Configuration.GetConnectionString("Shop"),
+    sql => sql.EnableRetryOnFailure()));
 
 var app = builder.Build();
 
-app.Run();
+// ponytail: migrations at startup suit one replica; with several, run an EF migration bundle in the pipeline instead.
+await using (var scope = app.Services.CreateAsyncScope())
+    await scope.ServiceProvider.GetRequiredService<ShopDbContext>().Database.MigrateAsync();
+
+await app.RunAsync();
