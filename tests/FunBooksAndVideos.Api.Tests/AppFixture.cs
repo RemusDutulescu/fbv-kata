@@ -40,6 +40,7 @@ public sealed class AppFixture : IAsyncLifetime
             {
                 ["ConnectionStrings:Shop"] = _sql.GetConnectionString(),
                 ["Temporal:Address"] = _temporal.Client.Connection.Options.TargetHost,
+                ["RateLimiting:SubmissionsPerMinute"] = "1000",
             })));
 
         // Starting the host migrates the database and starts the Temporal worker.
