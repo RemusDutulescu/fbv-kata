@@ -1,6 +1,7 @@
 using System.Diagnostics;
-using FunBooksAndVideos.Api.Persistence;
+using FunBooksAndVideos.Application.Queries;
 using FunBooksAndVideos.Domain;
+using FunBooksAndVideos.Infrastructure.Persistence;
 
 namespace FunBooksAndVideos.Api.Contracts;
 
@@ -15,7 +16,9 @@ public static class ContractMapping
         new Money(request.Total),
         request.Items.Select(ToDomain));
 
-    public static PurchaseOrderResponse ToResponse(this PurchaseOrderRecord order, ShippingSlipRecord? slip) => new(
+    public static PurchaseOrderResponse ToResponse(this StoredOrder stored) => ToResponse(stored.Order, stored.Slip);
+
+    private static PurchaseOrderResponse ToResponse(PurchaseOrderRecord order, ShippingSlipRecord? slip) => new(
         order.Id.Value,
         order.CustomerId.Value,
         order.Total.Amount,

@@ -4,6 +4,7 @@ using System.Text.Json.Serialization.Metadata;
 using FluentValidation;
 using FunBooksAndVideos.Api.Contracts;
 using FunBooksAndVideos.Api.Validation;
+using FunBooksAndVideos.Infrastructure;
 using Microsoft.AspNetCore.Diagnostics.HealthChecks;
 using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.OpenApi;

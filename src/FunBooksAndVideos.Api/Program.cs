@@ -1,19 +1,27 @@
-using FunBooksAndVideos.Api;
 using FunBooksAndVideos.Api.Endpoints;
-using FunBooksAndVideos.Api.Observability;
-using FunBooksAndVideos.Api.Persistence;
-using FunBooksAndVideos.Api.Processing;
+using FunBooksAndVideos.Application.Queries;
+using FunBooksAndVideos.Application.Submission;
+using FunBooksAndVideos.Infrastructure;
+using FunBooksAndVideos.Infrastructure.Observability;
+using FunBooksAndVideos.Infrastructure.Persistence;
+using FunBooksAndVideos.Infrastructure.Temporal;
 using Microsoft.EntityFrameworkCore;
+using OpenTelemetry.Trace;
 
 var builder = WebApplication.CreateBuilder(args);
 
-var connectionStrings = builder.Services.AddRequiredOptions<ConnectionStrings>(builder.Configuration, ConnectionStrings.Section);
-builder.Services.AddDbContext<ShopDbContext>(options => options.UseSqlServer(
-    connectionStrings.Shop,
-    sql => sql.EnableRetryOnFailure()));
-builder.Services.AddOrderProcessing(builder.Configuration);
+builder.Services.AddShopDatabase(builder.Configuration);
+builder.Services.AddTemporal(builder.Configuration);
+builder.Services.AddTelemetry(builder.Configuration, "FunBooksAndVideos.Api")
+    // Probes call every few seconds; their traces would be noise, and they'd cost ingestion.
+    .WithTracing(tracing => tracing.AddAspNetCoreInstrumentation(http => http.Filter = context => !context.Request.Path.StartsWithSegments("/health")));
+
+// Submissions go to Temporal, where the worker picks them up; reads come straight from SQL.
+builder.Services.AddRequiredOptions<SubmissionOptions>(builder.Configuration, SubmissionOptions.Section);
+builder.Services.AddScoped<OrderSubmitter>();
+builder.Services.AddScoped<ShopQueries>();
+
 builder.Services.AddHttpApi(builder.Configuration);
-builder.Services.AddTelemetry(builder.Configuration);
 
 // The largest valid order (100 lines with 200-character titles) is far below this; anything bigger is refused unread.
 builder.WebHost.ConfigureKestrel(kestrel => kestrel.Limits.MaxRequestBodySize = 256 * 1024);

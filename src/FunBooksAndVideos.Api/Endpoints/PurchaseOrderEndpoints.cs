@@ -1,12 +1,11 @@
 using System.Diagnostics;
 using System.Text.Json.Nodes;
 using FunBooksAndVideos.Api.Contracts;
-using FunBooksAndVideos.Api.Persistence;
-using FunBooksAndVideos.Api.Processing;
 using FunBooksAndVideos.Api.Validation;
+using FunBooksAndVideos.Application.Queries;
+using FunBooksAndVideos.Application.Submission;
 using FunBooksAndVideos.Domain;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.EntityFrameworkCore;
 
 namespace FunBooksAndVideos.Api.Endpoints;
 
@@ -63,11 +62,11 @@ public static class PurchaseOrderEndpoints
     /// <response code="429">Too many submissions. Retry in a minute.</response>
     /// <response code="503">Not confirmed in time, so it is unknown whether the order was received. Resubmit it: that is safe.</response>
     internal static async Task<Results<Created<PurchaseOrderResponse>, Ok<PurchaseOrderResponse>, Accepted, ProblemHttpResult>> SubmitAsync(
-        SubmitPurchaseOrderRequest request, OrderSubmitter submitter, ShopDbContext db, CancellationToken cancellationToken)
+        SubmitPurchaseOrderRequest request, OrderSubmitter submitter, ShopQueries queries, CancellationToken cancellationToken)
     {
         var order = request.ToDomain();
         var outcome = await submitter.SubmitAsync(order, cancellationToken);
-        return Respond(outcome, order.Id, await FindAsync(db, order.Id, cancellationToken));
+        return Respond(outcome, order.Id, (await queries.FindOrderAsync(order.Id, cancellationToken))?.ToResponse());
     }
 
     /// <summary>Get a purchase order and where its fulfilment stands.</summary>
@@ -76,9 +75,9 @@ public static class PurchaseOrderEndpoints
     /// <response code="400">The id is blank or longer than 64 characters.</response>
     /// <response code="404">No order has this id.</response>
     internal static async Task<Results<Ok<PurchaseOrderResponse>, NotFound>> GetAsync(
-        string id, ShopDbContext db, CancellationToken cancellationToken) =>
-        await FindAsync(db, new PurchaseOrderId(id), cancellationToken) is { } order
-            ? TypedResults.Ok(order)
+        string id, ShopQueries queries, CancellationToken cancellationToken) =>
+        await queries.FindOrderAsync(new PurchaseOrderId(id), cancellationToken) is { } order
+            ? TypedResults.Ok(order.ToResponse())
             : TypedResults.NotFound();
 
     /// <summary>One status per outcome. Pure, so the outcomes that are hard to provoke end to end (202, 503) are unit tested.</summary>
@@ -100,17 +99,6 @@ public static class PurchaseOrderEndpoints
 
         _ => throw new UnreachableException($"{outcome} has no stored order."),
     };
-
-    private static async Task<PurchaseOrderResponse?> FindAsync(ShopDbContext db, PurchaseOrderId id, CancellationToken cancellationToken)
-    {
-        // One round trip for the order and, once generated, its shipping slip.
-        var found = await db.PurchaseOrders.AsNoTracking()
-            .Where(order => order.Id == id)
-            .LeftJoin(db.ShippingSlips, order => order.Id, slip => slip.PurchaseOrderId, (order, slip) => new { order, slip })
-            .SingleOrDefaultAsync(cancellationToken);
-
-        return found?.order.ToResponse(found.slip);
-    }
 
     private static string LocationOf(PurchaseOrderId id) => $"/v1/purchase-orders/{id}";
 }

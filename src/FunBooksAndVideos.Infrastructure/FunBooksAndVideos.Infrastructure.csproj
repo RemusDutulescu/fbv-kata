@@ -1,0 +1,21 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The data tier: SQL Server through EF Core, the domain's JSON, the Temporal client, telemetry and settings. -->
+
+  <ItemGroup>
+    <PackageReference Include="Azure.Monitor.OpenTelemetry.Exporter" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.SqlServer" />
+    <PackageReference Include="Microsoft.Extensions.Configuration.Binder" />
+    <PackageReference Include="OpenTelemetry.Exporter.OpenTelemetryProtocol" />
+    <PackageReference Include="OpenTelemetry.Extensions.Hosting" />
+    <PackageReference Include="OpenTelemetry.Instrumentation.SqlClient" />
+    <PackageReference Include="Temporalio" />
+    <PackageReference Include="Temporalio.Extensions.Hosting" />
+    <PackageReference Include="Temporalio.Extensions.OpenTelemetry" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <ProjectReference Include="..\FunBooksAndVideos.Domain\FunBooksAndVideos.Domain.csproj" />
+  </ItemGroup>
+
+</Project>

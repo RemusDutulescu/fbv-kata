@@ -1,8 +1,7 @@
 using FunBooksAndVideos.Api.Contracts;
-using FunBooksAndVideos.Api.Persistence;
+using FunBooksAndVideos.Application.Queries;
 using FunBooksAndVideos.Domain;
 using Microsoft.AspNetCore.Http.HttpResults;
-using Microsoft.EntityFrameworkCore;
 
 namespace FunBooksAndVideos.Api.Endpoints;
 
@@ -21,14 +20,9 @@ public static class CustomerEndpoints
     /// <response code="200">The customer's clubs. A customer this service has never seen belongs to none: an answer, not a 404.</response>
     /// <response code="400">The id is blank or longer than 64 characters.</response>
     internal static async Task<Ok<MembershipsResponse>> GetMembershipsAsync(
-        string id, ShopDbContext db, CancellationToken cancellationToken)
+        string id, ShopQueries queries, CancellationToken cancellationToken)
     {
         var customerId = new CustomerId(id);
-        var memberships = await db.Customers.AsNoTracking()
-            .Where(customer => customer.Id == customerId)
-            .Select(customer => customer.Memberships)
-            .SingleOrDefaultAsync(cancellationToken);
-
-        return TypedResults.Ok(memberships.ToResponse(customerId));
+        return TypedResults.Ok((await queries.MembershipsOfAsync(customerId, cancellationToken)).ToResponse(customerId));
     }
 }

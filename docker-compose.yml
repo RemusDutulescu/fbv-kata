@@ -36,9 +36,29 @@ services:
       - "4317:18889"  # OTLP gRPC, for the API when it runs from source
 
   api:
-    build: .
+    build:
+      context: .
+      target: api
     ports:
       - "5080:8080"   # API, with the docs at /scalar/
+    environment:
+      ConnectionStrings__Shop: "Server=sqlserver,1433;Database=FunBooksAndVideos;User Id=sa;Password=Local_dev_only_1!;TrustServerCertificate=True"
+      Temporal__Address: "temporal:7233"
+      Temporal__Namespace: "default"
+      OTEL_EXPORTER_OTLP_ENDPOINT: "http://dashboard:18889"
+    depends_on:
+      sqlserver:
+        condition: service_healthy
+      temporal:
+        condition: service_healthy
+      dashboard:
+        condition: service_started
+
+  # Scales on its own: docker compose up --scale worker=3.
+  worker:
+    build:
+      context: .
+      target: worker
     environment:
       ConnectionStrings__Shop: "Server=sqlserver,1433;Database=FunBooksAndVideos;User Id=sa;Password=Local_dev_only_1!;TrustServerCertificate=True"
       Temporal__Address: "temporal:7233"

@@ -1,4 +1,4 @@
-using FunBooksAndVideos.Api.Persistence;
+using FunBooksAndVideos.Infrastructure.Persistence;
 using Microsoft.Extensions.Diagnostics.HealthChecks;
 
 namespace FunBooksAndVideos.Api.Endpoints;

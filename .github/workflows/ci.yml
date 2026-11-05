@@ -24,5 +24,6 @@ jobs:
       # Testcontainers starts SQL Server on the runner's Docker; the Temporal SDK downloads its own dev server.
       - run: dotnet test --configuration Release --no-build
 
-      # The Dockerfile names project files one by one, so a new project reference breaks the image, not the tests.
-      - run: docker build .
+      # The Dockerfile names project files one by one, so a new project reference breaks the images, not the tests.
+      - run: docker build --target api .
+      - run: docker build --target worker .

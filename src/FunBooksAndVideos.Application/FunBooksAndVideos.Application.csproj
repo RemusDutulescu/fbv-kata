@@ -1,0 +1,9 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+  <!-- The business tier: submitting an order, the workflow and activities that fulfil it, and the reads. -->
+
+  <ItemGroup>
+    <ProjectReference Include="..\FunBooksAndVideos.Infrastructure\FunBooksAndVideos.Infrastructure.csproj" />
+  </ItemGroup>
+
+</Project>

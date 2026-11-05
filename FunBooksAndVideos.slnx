@@ -7,10 +7,13 @@
   </Folder>
   <Folder Name="/src/">
     <Project Path="src/FunBooksAndVideos.Api/FunBooksAndVideos.Api.csproj" />
+    <Project Path="src/FunBooksAndVideos.Application/FunBooksAndVideos.Application.csproj" />
     <Project Path="src/FunBooksAndVideos.Domain/FunBooksAndVideos.Domain.csproj" />
+    <Project Path="src/FunBooksAndVideos.Infrastructure/FunBooksAndVideos.Infrastructure.csproj" />
+    <Project Path="src/FunBooksAndVideos.Worker/FunBooksAndVideos.Worker.csproj" />
   </Folder>
   <Folder Name="/tests/">
-    <Project Path="tests/FunBooksAndVideos.Api.Tests/FunBooksAndVideos.Api.Tests.csproj" />
     <Project Path="tests/FunBooksAndVideos.Domain.Tests/FunBooksAndVideos.Domain.Tests.csproj" />
+    <Project Path="tests/FunBooksAndVideos.IntegrationTests/FunBooksAndVideos.IntegrationTests.csproj" />
   </Folder>
 </Solution>
