@@ -107,7 +107,7 @@ sequenceDiagram
 - The order id is the idempotency key. A retried submission gets the same order back, and a different order reusing
   the id gets a 409.
 - The API and the worker share only Temporal and the database. The API starts workflows and reads SQL; workers run the
-  workflows and activities, and scale on their own ([ADR 8](docs/adr/0008-a-worker-host-of-its-own-over-three-tiers.md)).
+  workflows and activities, and scale on their own ([ADR 8](docs/adr/0008-three-tiers-and-a-worker-host-of-its-own.md)).
 
 ## The API
 
@@ -132,9 +132,9 @@ The brief's order, as it is sent:
 }
 ```
 
-Errors are RFC 9457 problem details with a trace id. A 400 lists every problem at once under `errors`: by JSON path
-when the body breaks the contract (`"$.items[1]"`), and by field when a value is invalid (`"items[2].title"`). The
-OpenAPI document comes from the controllers' `[ProducesResponseType]` declarations, with descriptions from their XML
+Errors are RFC 9457 problem details with a trace id. A 400 lists its problems under `errors`: the first place the body
+breaks the contract, by JSON path (`"$.items[1]"`), or else every invalid value at once, by field (`"items[2].title"`).
+The OpenAPI document comes from the controllers' `[ProducesResponseType]` declarations, with descriptions from their XML
 comments, so every status code above is in it.
 
 ## Adding a rule
@@ -166,7 +166,7 @@ Each one is here because it solves a problem this code has.
 | Process manager | [`PurchaseOrderWorkflow`](src/FunBooksAndVideos.Application/Processing/PurchaseOrderWorkflow.cs) | A durable, multi-step process with forward recovery; [ADR 4](docs/adr/0004-forward-recovery-no-compensation.md) says when it would need a saga's compensations |
 | Idempotent receiver | [`OrderSubmitter`](src/FunBooksAndVideos.Application/Submission/OrderSubmitter.cs): the stored order, the workflow and update ids, primary keys | A retry never activates or ships twice |
 | Result | [`SubmissionOutcome`](src/FunBooksAndVideos.Application/Submission/SubmissionOutcome.cs), mapped by [`PurchaseOrdersController`](src/FunBooksAndVideos.Api/Controllers/PurchaseOrdersController.cs) | Expected outcomes are values, not exceptions, each with one status code |
-| Strategy per class hierarchy, over a template method | [`DiscriminatedJson<T>`](src/FunBooksAndVideos.Infrastructure/Json/DiscriminatedJson.cs) and a converter for each hierarchy in [`HierarchyJson`](src/FunBooksAndVideos.Infrastructure/Json/HierarchyJson.cs) | The domain's JSON names each subtype by its runtime type, in one switch per hierarchy, and the domain has no serialization attributes |
+| Strategy per class hierarchy, sharing a template method | [`DiscriminatedJson<T>`](src/FunBooksAndVideos.Infrastructure/Json/DiscriminatedJson.cs) and a converter for each hierarchy in [`HierarchyJson`](src/FunBooksAndVideos.Infrastructure/Json/HierarchyJson.cs) | The domain's JSON names each subtype by its runtime type, in one switch per hierarchy, and the domain has no serialization attributes |
 | Aggregate | [`PurchaseOrder`](src/FunBooksAndVideos.Domain/PurchaseOrder.cs), [`Customer`](src/FunBooksAndVideos.Domain/Customer.cs) | Invariants live in one place: an invalid order can't be constructed |
 | Value object | [`PurchaseOrderId`, `CustomerId`](src/FunBooksAndVideos.Domain/Identifiers.cs), [`Money`](src/FunBooksAndVideos.Domain/Money.cs), [`MembershipType`](src/FunBooksAndVideos.Domain/MembershipType.cs) | Ids can't be swapped, money in the domain is never a bare decimal, and Premium is literally both clubs |
 | Polymorphism, no checks for concrete products | [`ProductLine.IsPhysical`](src/FunBooksAndVideos.Domain/ItemLines.cs) | BR2 asks "is it physical?", never "is it a book?" |
@@ -195,7 +195,7 @@ Architecture decision records, in [docs/adr](docs/adr/):
 5. [Optimistic concurrency for memberships](docs/adr/0005-optimistic-concurrency-for-memberships.md)
 6. [Validation in layers](docs/adr/0006-validation-in-layers.md)
 7. [Azure Container Apps, Azure SQL and Temporal Cloud](docs/adr/0007-azure-container-apps-sql-and-temporal-cloud.md)
-8. [A worker host of its own, over three tiers](docs/adr/0008-a-worker-host-of-its-own-over-three-tiers.md)
+8. [Three tiers, and a worker host of its own](docs/adr/0008-three-tiers-and-a-worker-host-of-its-own.md)
 
 [How they were reached](docs/README.md): a BRD, an RFC and a plan, each ending at a gate where the owner answered,
 then the build and two rounds of review.

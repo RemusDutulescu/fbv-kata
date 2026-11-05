@@ -1,6 +1,6 @@
 # 1. Temporal orchestrates fulfilment
 
-Status: accepted, 2026-11-05. Its hosting is superseded by [ADR 8](0008-a-worker-host-of-its-own-over-three-tiers.md).
+Status: accepted, 2026-11-05. Its hosting is superseded by [ADR 8](0008-three-tiers-and-a-worker-host-of-its-own.md).
 
 ## Context
 

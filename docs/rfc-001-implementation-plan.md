@@ -159,9 +159,10 @@ deploy workflow, then these documents. Hosting on the owner's server comes after
 | `14784f8` | fix(submission): an outage answers 503 or 202, an operator-stopped order 409 |
 | `1ea533c` | feat(telemetry): metrics and logs beside the traces, in Grafana |
 | `782ff33` | feat(infra): the worker as a second container app |
+| `fdca573` | chore(compose): two workers from the start |
 
 One part of the proposal didn't survive measurement. It expected one worker to fall behind under load, and three to
 catch up. Locally, the Temporal dev server gives out first, at about 50 orders a second, so more workers spread the
 work without raising the ceiling. The README describes what was measured.
 
-Then the documents caught up.
+Then the documents caught up, and a last review of the whole change tightened their wording.

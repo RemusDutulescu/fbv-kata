@@ -1,4 +1,4 @@
-# 8. A worker host of its own, over three tiers
+# 8. Three tiers, and a worker host of its own
 
 Status: accepted, 2026-11-05. Supersedes [ADR 1](0001-temporal-orchestrates-fulfilment.md)'s hosting: the worker no
 longer runs in the API process.
@@ -34,7 +34,8 @@ the rules.
 ## Consequences
 
 - There are two images, built from one Dockerfile. Deploy rolls out the worker first, because it has to run whatever
-  the new API starts.
+  the new API starts. A schema change, though, reaches SQL only when the new API starts and migrates it: until then,
+  any activity that needs it fails, and Temporal retries it (ADR 4).
 - Workers scale without touching the API. The dashboard's *Activities a second, per worker* shows the work spreading
   across them.
 - The worker image is the plain .NET runtime, so nothing the worker references may bring in ASP.NET Core.
