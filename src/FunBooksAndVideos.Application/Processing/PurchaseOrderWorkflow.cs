@@ -18,7 +18,7 @@ public sealed class PurchaseOrderWorkflow
 
     public static string IdFor(PurchaseOrderId id) => $"purchase-order-{id.Value}";
 
-    /// <summary>A concurrent duplicate joins the running workflow; a finished one is never started again.</summary>
+    /// <summary>A concurrent duplicate joins the running workflow; a finished one is never started again, while Temporal keeps its history.</summary>
     public static WorkflowOptions StartOptions(PurchaseOrderId id, string taskQueue) => new(IdFor(id), taskQueue)
     {
         IdConflictPolicy = WorkflowIdConflictPolicy.UseExisting,
@@ -57,8 +57,7 @@ public sealed class PurchaseOrderWorkflow
 
 internal static class ActivityDefaults
 {
-    // Unlimited retries suit transient faults; a step that keeps failing stays visible in the Temporal UI
-    // for an operator instead of failing a paid order. Add MaximumAttempts plus an alert if that ever needs a ceiling.
+    // Retried until it succeeds (ADR 4), except for a DomainException, which no retry can fix.
     public static readonly ActivityOptions Options = new()
     {
         StartToCloseTimeout = TimeSpan.FromSeconds(30),

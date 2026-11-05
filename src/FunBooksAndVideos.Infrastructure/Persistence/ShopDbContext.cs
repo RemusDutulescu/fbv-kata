@@ -40,8 +40,7 @@ public sealed class ShopDbContext(DbContextOptions<ShopDbContext> options) : DbC
             customer.ToTable("Customers");
             customer.HasKey(c => c.Id);
 
-            // Optimistic concurrency, invisible to the domain: if two orders change the same customer at once,
-            // the second SaveChanges throws and its Temporal activity is retried against fresh data.
+            // Optimistic concurrency, invisible to the domain (ADR 5).
             customer.Property<byte[]>("RowVersion").IsRowVersion();
         });
 

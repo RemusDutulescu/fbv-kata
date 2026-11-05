@@ -38,15 +38,16 @@ public sealed class OrderSubmitter(
                     Rpc = new() { Timeout = options.Value.AcknowledgementTimeout, CancellationToken = cancellationToken },
                 });
         }
-        catch (RpcTimeoutOrCanceledException) when (!cancellationToken.IsCancellationRequested)
+        catch (Exception e) when (IsUnanswered(e) && !cancellationToken.IsCancellationRequested)
         {
-            // Slower than promised. Whatever Temporal received carries on regardless.
+            // Whatever Temporal received carries on regardless.
             outcome = SubmissionOutcome.Pending;
         }
         catch (WorkflowAlreadyStartedException)
         {
-            // Its workflow ended without acknowledging (terminated by an operator, say) and won't run again.
-            outcome = SubmissionOutcome.Replayed;
+            // Its workflow ended without acknowledging (terminated by an operator, say), so its memberships may never
+            // have been activated, and it won't run again (ADR 3).
+            outcome = SubmissionOutcome.Conflict;
         }
 
         // Whatever Temporal said, the stored order says whose id this is.
@@ -58,6 +59,12 @@ public sealed class OrderSubmitter(
             _ => outcome,
         };
     }
+
+    /// <summary>No answer in time, Temporal out of reach or throttling, or a lazy client that has never connected.</summary>
+    private bool IsUnanswered(Exception e) =>
+        e is RpcTimeoutOrCanceledException
+            or RpcException { Code: RpcException.StatusCode.Unavailable or RpcException.StatusCode.ResourceExhausted }
+        || (e is InvalidOperationException && !temporal.Connection.IsConnected);
 
     private Task<PurchaseOrderRecord?> StoredAsync(PurchaseOrderId id, CancellationToken cancellationToken) =>
         db.PurchaseOrders.AsNoTracking().SingleOrDefaultAsync(o => o.Id == id, cancellationToken);

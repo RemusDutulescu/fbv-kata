@@ -4,6 +4,8 @@ using FunBooksAndVideos.Domain;
 using FunBooksAndVideos.Infrastructure.Persistence;
 using FunBooksAndVideos.Infrastructure.Temporal;
 using Microsoft.Extensions.Options;
+using Temporalio.Client;
+using Temporalio.Testing;
 using static FunBooksAndVideos.IntegrationTests.WorkflowTesting;
 
 namespace FunBooksAndVideos.IntegrationTests;
@@ -85,31 +87,64 @@ public sealed class PurchaseOrderWorkflowTests(AppFixture fixture)
             var order = NewOrder();
             await (await SubmitAsync(fixture.Temporal, OrderSubmission.From(order), taskQueue)).GetResultAsync();
 
-            // Temporal answers with the Submit update's original result. Stored and still processing: a retry that passed
-            // the SQL check before the original stored its order. Not stored: the database was wiped, so the id is spent.
+            // Temporal answers with the Submit update's original result; were it to refuse instead, both would be a
+            // Conflict. Stored but still processing: a retry that read the order just before the original completed it.
+            // Not stored: the database was wiped, so the id is spent.
             if (stored) await StoreAsync(order);
 
             Assert.Equal(expected, await SubmitThroughOrderSubmitterAsync(order, taskQueue, TimeSpan.FromSeconds(10)));
         });
     }
 
-    [Fact]
-    public async Task A_workflow_that_ended_without_acknowledging_is_never_run_again()
+    [Theory]
+    [InlineData(true)]
+    [InlineData(false)]
+    public async Task A_workflow_that_ended_without_acknowledging_is_never_run_again(bool stored)
     {
         var activities = new ScriptedActivities(Activation());
 
         await RunWorkerAsync(fixture.Temporal, activities, async taskQueue =>
         {
             var order = NewOrder();
+            if (stored) await StoreAsync(order);
             var handle = await fixture.Temporal.StartWorkflowAsync(
                 (PurchaseOrderWorkflow workflow) => workflow.RunAsync(OrderSubmission.From(order)),
                 PurchaseOrderWorkflow.StartOptions(order.Id, taskQueue));
             await handle.TerminateAsync();
 
-            // Run again, it would stall at the shut activation gate and time out instead. Its order was never stored,
-            // so the id is spent.
+            // Run again, it would stall at the shut activation gate and time out instead. Stored or not, its memberships
+            // were never activated, so the id is spent.
             Assert.Equal(SubmissionOutcome.Conflict, await SubmitThroughOrderSubmitterAsync(order, taskQueue, TimeSpan.FromSeconds(2)));
         });
+    }
+
+    [Fact]
+    public async Task A_temporal_never_reached_leaves_a_new_order_unconfirmed()
+    {
+        // Lazy, as the API's client is: it connects on first use, and nothing listens on port 1.
+        var unreachable = TemporalClient.CreateLazy(new("localhost:1") { DataConverter = TemporalServiceCollectionExtensions.TemporalDataConverter });
+
+        Assert.Equal(
+            SubmissionOutcome.Unconfirmed,
+            await SubmitThroughOrderSubmitterAsync(NewOrder(), "no-workers", TimeSpan.FromSeconds(10), unreachable));
+    }
+
+    [Fact]
+    public async Task A_temporal_lost_after_connecting_leaves_a_stored_order_pending()
+    {
+        // The client stops retrying after a second, not ten, so the test is quick; the exception is the same.
+        var lost = await WorkflowEnvironment.StartLocalAsync(new()
+        {
+            DataConverter = TemporalServiceCollectionExtensions.TemporalDataConverter,
+            RpcRetry = new() { MaxElapsedTime = TimeSpan.FromSeconds(1) },
+        });
+        await lost.ShutdownAsync();
+        var order = NewOrder();
+        await StoreAsync(order);
+
+        Assert.Equal(
+            SubmissionOutcome.Pending,
+            await SubmitThroughOrderSubmitterAsync(order, "no-workers", TimeSpan.FromSeconds(10), lost.Client));
     }
 
     /// <summary>Stores the order as AcceptOrder would. The scripted activities store nothing themselves.</summary>
@@ -120,7 +155,8 @@ public sealed class PurchaseOrderWorkflowTests(AppFixture fixture)
         await db.SaveChangesAsync(TestContext.Current.CancellationToken);
     }
 
-    private async Task<SubmissionOutcome> SubmitThroughOrderSubmitterAsync(PurchaseOrder order, string taskQueue, TimeSpan timeout)
+    private async Task<SubmissionOutcome> SubmitThroughOrderSubmitterAsync(
+        PurchaseOrder order, string taskQueue, TimeSpan timeout, ITemporalClient? client = null)
     {
         await using var db = fixture.CreateDbContext();
         var temporal = Options.Create(new TemporalOptions
@@ -130,6 +166,6 @@ public sealed class PurchaseOrderWorkflowTests(AppFixture fixture)
             TaskQueue = taskQueue,
         });
         var submission = Options.Create(new SubmissionOptions { AcknowledgementTimeout = timeout });
-        return await new OrderSubmitter(fixture.Temporal, db, temporal, submission).SubmitAsync(order, TestContext.Current.CancellationToken);
+        return await new OrderSubmitter(client ?? fixture.Temporal, db, temporal, submission).SubmitAsync(order, TestContext.Current.CancellationToken);
     }
 }

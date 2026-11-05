@@ -21,10 +21,10 @@ public sealed class PurchaseOrdersController(OrderSubmitter submitter, ShopQueri
     /// slip shortly afterwards (BR2): it appears on the order. The order id is the idempotency key, so retrying is always safe.
     /// </remarks>
     /// <response code="201">Accepted, and its memberships are already active.</response>
-    /// <response code="200">This exact order was submitted before (a retry), and its memberships are active. The body is the order as it stands now.</response>
+    /// <response code="200">A retry of an order already stored, and its memberships are active. The body is the order as it stands now.</response>
     /// <response code="202">Accepted, but activation is taking longer than usual. Poll the Location, or resubmit: both are safe.</response>
     /// <response code="400">The order is invalid. Nothing was processed.</response>
-    /// <response code="409">The id belongs to a different order.</response>
+    /// <response code="409">The id is already taken: by a different order, or by an earlier submission that can't run again.</response>
     /// <response code="429">Too many submissions. Retry in a minute.</response>
     /// <response code="503">Not confirmed in time, so it is unknown whether the order was received. Resubmit it: that is safe.</response>
     [HttpPost]
@@ -53,7 +53,7 @@ public sealed class PurchaseOrdersController(OrderSubmitter submitter, ShopQueri
             // The stored order is never echoed here: it belongs to whoever used the id first.
             (SubmissionOutcome.Conflict, _) => Problem(
                 statusCode: StatusCodes.Status409Conflict,
-                detail: $"Purchase order {order.Id} was already submitted with different contents."),
+                detail: $"Purchase order id {order.Id} is already taken: by a different order, or by an earlier submission that can't run again."),
 
             (SubmissionOutcome.Unconfirmed, _) => Problem(
                 statusCode: StatusCodes.Status503ServiceUnavailable,

@@ -78,7 +78,7 @@ public sealed class PurchaseOrderApiTests(AppFixture fixture)
     {
         var customerId = NewId();
 
-        // Both race to create the same customer. The loser's activity fails on the conflict, and its retry builds on the winner.
+        // Both may race to create the same customer: the loser's activity then fails on the conflict, and its retry builds on the winner.
         var responses = await Task.WhenAll(
             _http.PostAsJsonAsync(Orders, AnOrder(customerId, "bookClub"), Ct),
             _http.PostAsJsonAsync(Orders, AnOrder(customerId, "videoClub"), Ct));
