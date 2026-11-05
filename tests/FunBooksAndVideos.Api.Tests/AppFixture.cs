@@ -3,7 +3,6 @@ using FunBooksAndVideos.Api.Processing;
 using Microsoft.AspNetCore.Hosting;
 using Microsoft.AspNetCore.Mvc.Testing;
 using Microsoft.EntityFrameworkCore;
-using Microsoft.Extensions.Configuration;
 using Temporalio.Client;
 using Temporalio.Testing;
 using Testcontainers.MsSql;
@@ -35,13 +34,12 @@ public sealed class AppFixture : IAsyncLifetime
         await Task.WhenAll(_sql.StartAsync(), temporal);
         _temporal = await temporal;
 
-        _app = new WebApplicationFactory<Program>().WithWebHostBuilder(web => web.ConfigureAppConfiguration(
-            (_, config) => config.AddInMemoryCollection(new Dictionary<string, string?>
-            {
-                ["ConnectionStrings:Shop"] = _sql.GetConnectionString(),
-                ["Temporal:Address"] = _temporal.Client.Connection.Options.TargetHost,
-                ["RateLimiting:SubmissionsPerMinute"] = "1000",
-            })));
+        // UseSetting, not ConfigureAppConfiguration: Program.cs reads its settings while it registers services, before
+        // configuration added that way is in place.
+        _app = new WebApplicationFactory<Program>().WithWebHostBuilder(web => web
+            .UseSetting("ConnectionStrings:Shop", _sql.GetConnectionString())
+            .UseSetting("Temporal:Address", _temporal.Client.Connection.Options.TargetHost)
+            .UseSetting("RateLimiting:SubmissionsPerMinute", "1000"));
 
         // Starting the host migrates the database and starts the Temporal worker.
         _ = _app.Server;

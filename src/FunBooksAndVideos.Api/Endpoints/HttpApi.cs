@@ -38,12 +38,13 @@ public static class HttpApi
 
         // Every submission starts a workflow, and workflows cost Temporal Cloud actions, so a public endpoint needs a
         // ceiling. One window shared by every client: it caps what the service can be made to spend, not who gets a turn.
+        var limits = services.AddRequiredOptions<RateLimitingOptions>(configuration, RateLimitingOptions.Section);
         services.AddRateLimiter(limiter =>
         {
             limiter.RejectionStatusCode = StatusCodes.Status429TooManyRequests;
             limiter.AddFixedWindowLimiter(SubmissionsPolicy, window =>
             {
-                window.PermitLimit = configuration.GetValue("RateLimiting:SubmissionsPerMinute", 30);
+                window.PermitLimit = limits.SubmissionsPerMinute;
                 window.Window = TimeSpan.FromMinutes(1);
             });
         });

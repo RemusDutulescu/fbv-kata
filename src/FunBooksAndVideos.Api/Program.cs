@@ -1,3 +1,4 @@
+using FunBooksAndVideos.Api;
 using FunBooksAndVideos.Api.Endpoints;
 using FunBooksAndVideos.Api.Observability;
 using FunBooksAndVideos.Api.Persistence;
@@ -6,8 +7,9 @@ using Microsoft.EntityFrameworkCore;
 
 var builder = WebApplication.CreateBuilder(args);
 
+var connectionStrings = builder.Services.AddRequiredOptions<ConnectionStrings>(builder.Configuration, ConnectionStrings.Section);
 builder.Services.AddDbContext<ShopDbContext>(options => options.UseSqlServer(
-    builder.Configuration.GetConnectionString("Shop"),
+    connectionStrings.Shop,
     sql => sql.EnableRetryOnFailure()));
 builder.Services.AddOrderProcessing(builder.Configuration);
 builder.Services.AddHttpApi(builder.Configuration);

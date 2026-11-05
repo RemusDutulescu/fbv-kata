@@ -1,7 +1,5 @@
 using FunBooksAndVideos.Api.Observability;
 using FunBooksAndVideos.Domain.Rules;
-using Microsoft.Extensions.Options;
-using Temporalio.Client;
 using Temporalio.Converters;
 using Temporalio.Extensions.Hosting;
 using Temporalio.Extensions.OpenTelemetry;
@@ -16,32 +14,30 @@ public static class ProcessingServiceCollectionExtensions
 
     public static IServiceCollection AddOrderProcessing(this IServiceCollection services, IConfiguration configuration)
     {
-        var section = configuration.GetSection(TemporalOptions.Section);
-        services.AddOptions<TemporalOptions>().Bind(section).ValidateDataAnnotations().ValidateOnStart();
+        var temporal = services.AddRequiredOptions<TemporalOptions>(configuration, TemporalOptions.Section);
 
         // The business rules.
         services.AddRule<MembershipActivationRule>();
         services.AddRule<ShippingSlipRule>();
         services.AddSingleton<PurchaseOrderProcessor>();
 
-        services.AddTemporalClient().Configure<IOptions<TemporalOptions>>((client, temporal) =>
+        services.AddTemporalClient(client =>
         {
-            client.TargetHost = temporal.Value.Address;
-            client.Namespace = temporal.Value.Namespace;
+            client.TargetHost = temporal.Address;
+            client.Namespace = temporal.Namespace;
             client.DataConverter = TemporalDataConverter;
 
             // Carries the trace context through workflow and activity headers; the hosted worker picks it up too.
             client.Interceptors = [new TracingInterceptor()];
-            if (!string.IsNullOrEmpty(temporal.Value.ApiKey))
+            if (!string.IsNullOrEmpty(temporal.ApiKey))
             {
-                client.ApiKey = temporal.Value.ApiKey;
+                client.ApiKey = temporal.ApiKey;
                 client.Tls = new();
             }
         });
 
         // The worker runs inside the API process: one deployable. Split it out when workers need to scale on their own.
-        var taskQueue = section[nameof(TemporalOptions.TaskQueue)] ?? new TemporalOptions().TaskQueue;
-        services.AddHostedTemporalWorker(taskQueue)
+        services.AddHostedTemporalWorker(temporal.TaskQueue)
             .AddScopedActivities<OrderActivities>()
             .AddScopedActivities<FulfilmentActivities>()
             .AddWorkflow<PurchaseOrderWorkflow>();

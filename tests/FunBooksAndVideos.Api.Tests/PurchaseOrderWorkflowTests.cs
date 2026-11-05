@@ -121,7 +121,13 @@ public sealed class PurchaseOrderWorkflowTests(AppFixture fixture)
     private async Task<SubmissionOutcome> SubmitThroughOrderSubmitterAsync(PurchaseOrder order, string taskQueue, TimeSpan timeout)
     {
         await using var db = fixture.CreateDbContext();
-        var options = Options.Create(new TemporalOptions { TaskQueue = taskQueue, AcknowledgementTimeout = timeout });
+        var options = Options.Create(new TemporalOptions
+        {
+            Address = fixture.Temporal.Connection.Options.TargetHost!,
+            Namespace = fixture.Temporal.Options.Namespace,
+            TaskQueue = taskQueue,
+            AcknowledgementTimeout = timeout,
+        });
         return await new OrderSubmitter(fixture.Temporal, db, options).SubmitAsync(order, TestContext.Current.CancellationToken);
     }
 }
