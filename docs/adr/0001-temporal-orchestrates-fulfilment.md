@@ -32,6 +32,7 @@ own.
 ## Consequences
 
 - Durable state, retries and an operator's view (the Temporal UI) come with it.
-- Temporal becomes a runtime dependency: Temporal Cloud in Azure, the dev server locally and in tests.
+- Temporal becomes a runtime dependency: Temporal Cloud in Azure, and the dev server locally, in the tests and on the
+  homelab.
 - Workflow code follows determinism rules, and a change to the workflow's shape needs Temporal's versioning once
   orders are in flight.

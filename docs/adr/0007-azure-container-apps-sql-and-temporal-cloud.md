@@ -1,6 +1,7 @@
 # 7. Azure Container Apps, Azure SQL and Temporal Cloud
 
-Status: accepted, 2026-11-05
+Status: accepted, 2026-11-05. Kept as code and not applied: since gate 5, the live demo runs on the owner's homelab,
+from [deploy/compose.yml](../../deploy/compose.yml).
 
 ## Context
 

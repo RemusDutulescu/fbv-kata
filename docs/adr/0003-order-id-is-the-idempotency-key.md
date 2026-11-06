@@ -27,10 +27,12 @@ The order id is the idempotency key, enforced at three levels in
 3. **Primary keys.** Orders and slips are keyed by the order id, and each activity checks before it inserts, so a
    retried activity changes nothing.
 
-Whatever Temporal answers, the stored order has the last word. A different order under the id is a 409. An
-acknowledged order that isn't stored means the id was used before a database wipe, which is also a 409. A workflow
-that ended without acknowledging, because an operator terminated it, can't run again either. Its retry is a 409 as
-well, stored or not: its memberships may never have been activated.
+Whatever Temporal answers, the stored order decides. Each of these is a 409:
+
+- a different order under the id;
+- an acknowledged order that isn't stored, which means the id was used before a database wipe;
+- a retry of a workflow that ended without acknowledging, because an operator terminated it, stored or not. Its
+  memberships may never have been activated, and the workflow can't run again.
 
 Two submissions are the same order when their customer, total and lines are equal by value, so JSON formatting and
 trailing zeros don't matter. SQL compares ids case-sensitively, because Temporal's workflow ids are case-sensitive.

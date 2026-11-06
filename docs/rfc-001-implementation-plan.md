@@ -1,14 +1,15 @@
 # RFC-001 — Implementation plan
 
-**Status:** Approved at gate 3 (2026-11-05). All twelve steps are done, and gate 4 reviewed them. The Azure steps,
-10 and 11, pass `terraform validate` and actionlint but have not been applied yet.
+**Status:** Approved at gate 3 (2026-11-05). All twelve steps are done, and gate 4 reviewed them. The Azure steps, 10
+and 11, pass `terraform validate` and actionlint but have not been applied. The live demo runs on the owner's homelab
+instead ([after gate 5](#after-gate-5)).
 **Author:** Claude (with Remus Dutulescu)
 **Date:** 2026-11-04
 **Relates to:** [RFC-001](rfc-001-purchase-order-processing.md)
 
 ## 1. Steps
 
-One commit each. Steps 1 to 7 stand on their own; if time ran short, 10 and 11 would go first, then 9.
+One commit each. Steps 1 to 7 stand on their own. If time ran short, 10 and 11 would be cut first, then 9.
 
 | # | Step | Commit |
 | --- | --- | --- |
@@ -33,18 +34,18 @@ One commit each. Steps 1 to 7 stand on their own; if time ran short, 10 and 11 w
   - its slip appears shortly afterwards;
   - the Temporal UI shows AcceptOrder, then ActivateMembership, the update completing, then GenerateShippingSlip;
   - the dashboard shows one trace with a span for each rule.
-- **Edge cases:** the same order again is a 200 with the same body, other contents under the same id are a 409, and
-  Book Club and Video Club ordered at once end as Premium.
+- **Edge cases:** the same order again is a 200 with the same body. Other contents under the same id are a 409. Book
+  Club and Video Club ordered at once end as Premium.
 - **In Azure:** Newman green after the deploy, the same trace in Application Insights, and the workflow in the
-  Temporal Cloud UI. Not yet run: see the status.
+  Temporal Cloud UI. This has not been run (see the status).
 
 ## Gate 3
 
 **Proposed** at 18:58 on 2026-11-04: this plan.
 
-**The owner's answer:** approved at 08:55 on 2026-11-05. At 09:10, before the first commit, the working agreement
-changed: "You go ahead and commit (using my name, not your signing!) and do each commit up to the very end. Only at
-the end I will review everything."
+**The owner's answer:** approved at 08:55 on 2026-11-05. At 09:10, before the first commit, the owner changed the
+working agreement: "You go ahead and commit (using my name, not your signing!) and do each commit up to the very end.
+Only at the end I will review everything."
 
 **What changed:** Claude committed each step under the owner's name, with no co-author trailer. Instead of a stop
 after every step, there was one review at the end: gate 4.
@@ -58,25 +59,28 @@ not complex AI slop)." And, of this way of working: "showcase that too, in a doc
 docs based on what we discussed and built."
 
 **Proposed** at 11:30, from two independent reviews, one for correctness and one for over-engineering. Every finding
-was checked against the code, and the important ones against the running stack or the SDK's documentation. Twelve
-things had been missed, the most damaging first:
+was checked against the code, and the important ones also against the running stack or the SDK's documentation. The
+reviews found twelve things that had been missed, most damaging first:
 
 1. A 202 could promise an order that Temporal never received.
 2. A retry could get a 200 before its membership was active.
 3. In a rare race, an identical retry could get a 409.
-4. An id with a trailing newline passed validation, and failed as a 500 after the work was done.
+4. An id with a trailing newline passed validation, then failed as a 500 after the work was done.
 5. On the deployed site, the API reference's "Try it" would be blocked: Azure ends TLS, so the app saw plain HTTP.
 6. Readiness depended on Temporal, so a blip there would take the read endpoints offline too.
-7. A new command also needs a JSON name, which nothing enforced.
-8. SQL compared ids case-insensitively, and Temporal compares them case-sensitively.
+7. A new command also needs a JSON name, and nothing enforced it.
+8. SQL compared ids case-insensitively, while Temporal compares them case-sensitively.
 9. Strict JSON accepted numbers sent as strings, and duplicate keys.
 10. The documentation made claims the code didn't bear out.
 11. The deploy identity had rights over the whole resource group.
 12. The app could start before the SQL firewall rule existed.
 
-Also proposed: cuts (a test suite that repeated the HTTP tests, the payload hash, tests of the compiler, null guards
-outside the domain, unused members, repeated explanations), and the things kept against the audit's advice for their
-showcase value, such as the pattern table and the OpenAPI description.
+Also proposed:
+
+- **Cuts:** a test suite that repeated the HTTP tests, the payload hash, tests of the compiler, null guards outside
+  the domain, unused members, and repeated explanations.
+- **Kept against the audit's advice,** for their showcase value: the pattern table and the OpenAPI description, among
+  others.
 
 **The owner's answer** at 11:41: "Let's do all of these."
 
@@ -89,26 +93,30 @@ showcase value, such as the pattern table and the OpenAPI description.
 | `4a3f07e` | test: one integration suite at the HTTP boundary, and no tests of the compiler |
 | `79c3df9` | docs: claims that match the code, each said once |
 
-In `src` and `tests`, leaving out the regenerated migration, they removed 531 lines and added 323, the fixes and their
-new tests included. Afterwards the build had no warnings, the tests passed, Newman was green against a fresh stack, and
-the forwarded-headers fix was tested locally.
+In `src` and `tests`, leaving out the regenerated migration, these commits removed 531 lines and added 323, the fixes
+and their new tests included. Afterwards, the build had no warnings and the tests passed. Newman was green against a
+fresh stack, and the forwarded-headers fix was tested locally.
 
 **Raised by the owner** at 12:01, while those were being built: "Wherever we register using the Options pattern a new
 config POCO at startup, can we replace that with an extension method that adds and binds that object and raises an
 exception if it's not configured, plus have required where appropriate in the POCO options fields? […] Also favor
 POCO config objects rather than looking up config fields by string names."
 
-**Proposed** at 12:21: one `AddRequiredOptions` extension, and one class per section. Settings the app can't run
-without are `required` members, checked by `[Required]` or `[Range]` because binding ignores the keyword. The values
-move from code into appsettings. The test fixture switches to `UseSetting`, because the app now reads its settings
-while it registers services, before settings added with `ConfigureAppConfiguration` are in place. The telemetry
-exporters' standard variables stay as they are, because the exporters read them themselves.
+**Proposed** at 12:21:
+
+- One `AddRequiredOptions` extension, and one class per section.
+- Settings the app can't run without are `required` members, checked by `[Required]` or `[Range]`, because binding
+  ignores the keyword.
+- The values move from code into appsettings.
+- The test fixture switches to `UseSetting`. The app now reads its settings while it registers services, before
+  settings added with `ConfigureAppConfiguration` are in place.
+- The telemetry exporters' standard variables stay as they are, because the exporters read them themselves.
 
 **The owner's answer** at 12:29: "Agreed, build your recommendations. And yes, it's OK to skip those 2 telemetry
-vars." That became `0cdb9e2`, checked with the compose stack stopped so that a setting that didn't apply couldn't
-fall back to it, and by starting the image without its settings, which it refuses.
+vars." That became `0cdb9e2`. It was checked twice: with the compose stack stopped, so that a setting that didn't
+apply couldn't fall back to it, and by starting the image without its settings, which it refuses.
 
-Last came this folder, written up from the session's record.
+This folder came last, written up from the session's record.
 
 ## Gate 5
 
@@ -118,8 +126,8 @@ Last came this folder, written up from the session's record.
 delivery (Terraform, the workflows, Docker and Postman). They found about 30 things, each checked against the code.
 Three changed behaviour:
 
-1. The first deploy would fail at Azure sign-in: GitHub names repositories created after 15 July 2026 differently in
-   its OpenID Connect tokens.
+1. The first deploy would fail at Azure sign-in: GitHub's OpenID Connect tokens name repositories created after
+   15 July 2026 differently.
 2. An unreachable or throttling Temporal escaped as a 500, where the contract promises 202 or 503.
 3. An order whose workflow an operator terminated before activation answered 200, "memberships active".
 
@@ -137,17 +145,22 @@ distinguish anything."
 
 **Asked** at 13:22, and answered at 13:26:
 
-- How should the projects be layered? "Classic 3-tier": Domain, Infrastructure and Application, under the Api and a
-  Worker host.
-- Which explicit polymorphism for the domain's JSON? "A converter per hierarchy." The HTTP contract keeps its
-  attributes, which the OpenAPI document needs.
-- Where should the live demo run? "Homelab, keep Azure as code": the owner's own server, with the Azure Terraform
-  updated but not applied.
-- Which APM? "Tend to say Grafana. […]"
+| Question | The owner's answer |
+| --- | --- |
+| How should the projects be layered? | "Classic 3-tier": Domain, Infrastructure and Application, under the Api and a Worker host. |
+| Which explicit polymorphism for the domain's JSON? | "A converter per hierarchy." The HTTP contract keeps its attributes, which the OpenAPI document needs. |
+| Where should the live demo run? | "Homelab, keep Azure as code": the owner's own server, with the Azure Terraform updated but not applied. |
+| Which APM? | "Tend to say Grafana. […]" |
 
-**Proposed** at 13:28, in phases: the restructure (the tiers, the worker host, MVC controllers, the converters, and
-the review's two behaviour fixes), then telemetry in Grafana with a load script, then the worker in Terraform and the
-deploy workflow, then these documents. Hosting on the owner's server comes after, in its own repository.
+**Proposed** at 13:28, in phases:
+
+1. The restructure: the tiers, the worker host, MVC controllers, the converters, and the review's two behaviour
+   fixes.
+2. Telemetry in Grafana, with a load script.
+3. The worker in Terraform and in the deploy workflow.
+4. These documents.
+
+Hosting on the owner's server would come after, in the homelab's own repository.
 
 **The owner's answer** at 13:38: "Confirmed. […] Do the whole thing here on this repo in one go."
 
@@ -161,8 +174,21 @@ deploy workflow, then these documents. Hosting on the owner's server comes after
 | `b3ca693` | feat(infra): the worker as a second container app |
 | `466a9a5` | chore(compose): two workers from the start |
 
-One part of the proposal didn't survive measurement. It expected one worker to fall behind under load, and three to
+One expectation didn't survive measurement. The proposal expected one worker to fall behind under load, and three to
 catch up. Locally, the Temporal dev server gives out first, at about 50 orders a second, so more workers spread the
 work without raising the ceiling. The README describes what was measured.
 
 Then the documents caught up, and a last review of the whole change tightened their wording.
+
+## After gate 5
+
+The homelab's own repository deploys the app. Three commits here made that possible:
+
+| Commit | |
+| --- | --- |
+| `bc38fdb` | feat(deploy): compose for a host of its own, behind its proxy. The images CI pushed for one commit, with SQL Server and the Temporal dev server on an internal network. The host sets the commit, its network, the collector and a password. |
+| `19082ea` | fix(deploy): every service but the load test restarts with its host. |
+| `9fa71ec` | fix(api): under load on the homelab, the dev server briefly answered NotFound for its own namespace, and those submissions failed with a 500. A NotFound now counts as no answer, like a timeout: 503 for a new order, 202 for a stored one. |
+
+On the homelab, the dev server keeps up with about 20 orders a second, and only with SQLite in WAL mode: the default
+journal managed about 2.
