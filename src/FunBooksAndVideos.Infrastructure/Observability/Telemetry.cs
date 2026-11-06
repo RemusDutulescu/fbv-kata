@@ -33,7 +33,8 @@ public static class Telemetry
                 .AddSource(Source.Name)
                 .AddSource(TracingInterceptor.ClientSource.Name, TracingInterceptor.WorkflowsSource.Name, TracingInterceptor.ActivitiesSource.Name)
                 .AddSqlClientInstrumentation())
-            .WithMetrics(metrics => metrics.AddMeter(TemporalMeter.Name))
+            // .NET's own runtime meter: the dashboard's CPU and memory per replica.
+            .WithMetrics(metrics => metrics.AddMeter(TemporalMeter.Name, "System.Runtime"))
             .WithLogging(configureBuilder: null, configureOptions: logging => logging.IncludeFormattedMessage = true);
 
         // To Grafana's LGTM stack locally, and to the host's collector on a host; with no endpoint, nothing is exported.

@@ -1,119 +1,868 @@
 {
   "uid": "funbooksandvideos",
   "title": "FunBooksAndVideos",
-  "description": "Submissions as the API answers them, and the work as the workers do it. docker compose run --rm k6 gives it something to show.",
-  "tags": ["funbooksandvideos"],
+  "description": "Submissions as the API answers them, the fulfilment the workers do, and what went wrong. docker compose run --rm k6 gives it something to show.",
+  "tags": [
+    "funbooksandvideos"
+  ],
   "schemaVersion": 41,
-  "version": 1,
+  "version": 2,
   "editable": true,
   "refresh": "5s",
-  "time": { "from": "now-15m", "to": "now" },
+  "time": {
+    "from": "now-15m",
+    "to": "now"
+  },
   "panels": [
     {
       "type": "row",
-      "title": "API",
-      "id": 1,
-      "gridPos": { "x": 0, "y": 0, "w": 24, "h": 1 },
+      "title": "At a glance, over the dashboard's time range",
       "collapsed": false,
-      "panels": []
+      "panels": [],
+      "id": 1,
+      "gridPos": {
+        "x": 0,
+        "y": 0,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Accepted",
+      "description": "201: accepted, its memberships active.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(http_server_request_duration_seconds_count{job=\"FunBooksAndVideos.Api\", http_route=\"v1/purchase-orders\", http_request_method=\"POST\", http_response_status_code=~\"201\"}[$__range])) or vector(0)",
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 2,
+      "gridPos": {
+        "x": 0,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Replayed",
+      "description": "200: a retry of a stored order, answered with the same order.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(http_server_request_duration_seconds_count{job=\"FunBooksAndVideos.Api\", http_route=\"v1/purchase-orders\", http_request_method=\"POST\", http_response_status_code=~\"200\"}[$__range])) or vector(0)",
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 3,
+      "gridPos": {
+        "x": 4,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Refused",
+      "description": "400 invalid, or 409 an id already taken. Nothing was processed.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(http_server_request_duration_seconds_count{job=\"FunBooksAndVideos.Api\", http_route=\"v1/purchase-orders\", http_request_method=\"POST\", http_response_status_code=~\"400|409\"}[$__range])) or vector(0)",
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 4,
+      "gridPos": {
+        "x": 8,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Not confirmed",
+      "description": "202 stored but not yet active, or 503 not stored. Either way the client resubmits. Anything above 0 means the workers or Temporal fell behind.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "orange",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(http_server_request_duration_seconds_count{job=\"FunBooksAndVideos.Api\", http_route=\"v1/purchase-orders\", http_request_method=\"POST\", http_response_status_code=~\"202|503\"}[$__range])) or vector(0)",
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 5,
+      "gridPos": {
+        "x": 12,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Rate-limited",
+      "description": "429: over the API's own limit (ADR 6).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "thresholds"
+          },
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "text",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(http_server_request_duration_seconds_count{job=\"FunBooksAndVideos.Api\", http_route=\"v1/purchase-orders\", http_request_method=\"POST\", http_response_status_code=~\"429\"}[$__range])) or vector(0)",
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 6,
+      "gridPos": {
+        "x": 16,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "type": "stat",
+      "title": "Orders completed",
+      "description": "Workflows finished: every step done, the shipping slip included.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "decimals": 0,
+          "color": {
+            "mode": "fixed",
+            "fixedColor": "green"
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "colorMode": "value",
+        "graphMode": "none",
+        "textMode": "value"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum(increase(temporal_workflow_completed_total{job=\"FunBooksAndVideos.Worker\"}[$__range])) or vector(0)",
+          "legendFormat": "",
+          "instant": true,
+          "range": false
+        }
+      ],
+      "id": 7,
+      "gridPos": {
+        "x": 20,
+        "y": 1,
+        "w": 4,
+        "h": 4
+      }
+    },
+    {
+      "type": "row",
+      "title": "API",
+      "collapsed": false,
+      "panels": [],
+      "id": 8,
+      "gridPos": {
+        "x": 0,
+        "y": 5,
+        "w": 24,
+        "h": 1
+      }
     },
     {
       "type": "timeseries",
       "title": "Submissions a minute, by status",
       "description": "201: accepted, memberships active. 202: stored, activation not confirmed yet. 503: not confirmed at all, so the client resubmits. The API docs list the rest.",
-      "id": 2,
-      "gridPos": { "x": 0, "y": 1, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "60 * sum by (http_response_status_code) (rate(http_server_request_duration_seconds_count{job=\"FunBooksAndVideos.Api\", http_route=\"v1/purchase-orders\", http_request_method=\"POST\"}[1m]))",
           "legendFormat": "{{http_response_status_code}}"
         }
-      ]
+      ],
+      "id": 9,
+      "gridPos": {
+        "x": 0,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      }
     },
     {
       "type": "timeseries",
-      "title": "Submission latency, p95",
-      "description": "How long a client waits for its answer, which includes BR1's activation.",
-      "id": 3,
-      "gridPos": { "x": 12, "y": 1, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "s", "min": 0 }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "title": "Time to the answer, and to the last step, p95",
+      "description": "The answer: how long a client waits, BR1's activation included. The last step: from the workflow's start to CompleteOrder, after the shipping slip. The gap between them is the work done after the client heard back.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "s",
+          "min": 0,
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(http_server_request_duration_seconds_bucket{job=\"FunBooksAndVideos.Api\", http_route=\"v1/purchase-orders\", http_request_method=\"POST\"}[1m])))",
-          "legendFormat": "p95"
+          "legendFormat": "the answer"
+        },
+        {
+          "refId": "B",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "histogram_quantile(0.95, sum by (le) (rate(temporal_workflow_endtoend_latency_milliseconds_bucket{job=\"FunBooksAndVideos.Worker\"}[1m]))) / 1000",
+          "legendFormat": "the last step"
         }
-      ]
+      ],
+      "id": 10,
+      "gridPos": {
+        "x": 12,
+        "y": 6,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "row",
+      "title": "Fulfilment",
+      "collapsed": false,
+      "panels": [],
+      "id": 11,
+      "gridPos": {
+        "x": 0,
+        "y": 14,
+        "w": 24,
+        "h": 1
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Steps a second, by activity",
+      "description": "Every order runs AcceptOrder and CompleteOrder. ActivateMembership runs for an order with a membership (BR1), GenerateShippingSlip for one with a physical product (BR2).",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (activity_type) (rate(temporal_activity_execution_latency_milliseconds_count{job=\"FunBooksAndVideos.Worker\"}[1m]))",
+          "legendFormat": "{{activity_type}}"
+        }
+      ],
+      "id": 12,
+      "gridPos": {
+        "x": 0,
+        "y": 15,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Failed attempts a minute, by activity",
+      "description": "Each failed attempt is retried until it succeeds (ADR 4). Two orders racing for one customer fail ActivateMembership once, by design (ADR 5); a steady stream means SQL or the network is down. The logs below say why.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {
+            "drawStyle": "bars",
+            "fillOpacity": 60,
+            "stacking": {
+              "mode": "normal"
+            }
+          }
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "sum by (activity_type) (increase(temporal_activity_execution_failed_total{job=\"FunBooksAndVideos.Worker\"}[1m]))",
+          "legendFormat": "{{activity_type}}"
+        }
+      ],
+      "id": 13,
+      "gridPos": {
+        "x": 12,
+        "y": 15,
+        "w": 12,
+        "h": 8
+      }
     },
     {
       "type": "row",
       "title": "Workers",
-      "id": 4,
-      "gridPos": { "x": 0, "y": 9, "w": 24, "h": 1 },
       "collapsed": false,
-      "panels": []
+      "panels": [],
+      "id": 14,
+      "gridPos": {
+        "x": 0,
+        "y": 23,
+        "w": 24,
+        "h": 1
+      }
     },
     {
       "type": "timeseries",
       "title": "Activities a second, per worker",
       "description": "One line per worker replica: docker compose up --scale worker=3 spreads the work across three.",
-      "id": 5,
-      "gridPos": { "x": 0, "y": 10, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "short", "min": 0 }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "short",
+          "min": 0,
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "sum by (instance) (rate(temporal_activity_execution_latency_milliseconds_count{job=\"FunBooksAndVideos.Worker\"}[1m]))",
           "legendFormat": "{{instance}}"
         }
-      ]
+      ],
+      "id": 15,
+      "gridPos": {
+        "x": 0,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      }
     },
     {
       "type": "timeseries",
       "title": "Waiting for a worker, p95",
       "description": "How long a workflow task waits in Temporal's queue before a worker picks it up (schedule-to-start). It climbs when the workers fall behind, and reads 10 s at most: the histogram's top bucket. Activities don't wait: Temporal hands each straight to the worker that scheduled it.",
-      "id": 6,
-      "gridPos": { "x": 12, "y": 10, "w": 12, "h": 8 },
-      "datasource": { "type": "prometheus", "uid": "prometheus" },
-      "fieldConfig": { "defaults": { "unit": "ms", "min": 0 }, "overrides": [] },
-      "options": { "legend": { "displayMode": "list", "placement": "bottom" }, "tooltip": { "mode": "multi" } },
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "ms",
+          "min": 0,
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "prometheus", "uid": "prometheus" },
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
           "expr": "histogram_quantile(0.95, sum by (le) (rate(temporal_workflow_task_schedule_to_start_latency_milliseconds_bucket{job=\"FunBooksAndVideos.Worker\"}[1m])))",
           "legendFormat": "p95"
         }
-      ]
+      ],
+      "id": 16,
+      "gridPos": {
+        "x": 12,
+        "y": 24,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "CPU, per replica",
+      "description": "CPU time a second, from .NET's runtime meter: 100% is one core. A worker added under load takes its share.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "percentunit",
+          "min": 0,
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "label_replace(sum by (job, instance) (rate(dotnet_process_cpu_time_seconds_total{job=~\"FunBooksAndVideos.*\"}[1m])), \"host\", \"$1\", \"job\", \"FunBooksAndVideos\\\\.(.*)\")",
+          "legendFormat": "{{host}} {{instance}}"
+        }
+      ],
+      "id": 17,
+      "gridPos": {
+        "x": 0,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "timeseries",
+      "title": "Memory, per replica",
+      "description": "Working set. On the homelab, each replica is capped at 512 MB.",
+      "datasource": {
+        "type": "prometheus",
+        "uid": "prometheus"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "unit": "bytes",
+          "min": 0,
+          "custom": {}
+        },
+        "overrides": []
+      },
+      "options": {
+        "legend": {
+          "displayMode": "list",
+          "placement": "bottom"
+        },
+        "tooltip": {
+          "mode": "multi"
+        }
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "prometheus",
+            "uid": "prometheus"
+          },
+          "expr": "label_replace(sum by (job, instance) (dotnet_process_memory_working_set_bytes{job=~\"FunBooksAndVideos.*\"}), \"host\", \"$1\", \"job\", \"FunBooksAndVideos\\\\.(.*)\")",
+          "legendFormat": "{{host}} {{instance}}"
+        }
+      ],
+      "id": 18,
+      "gridPos": {
+        "x": 12,
+        "y": 32,
+        "w": 12,
+        "h": 8
+      }
+    },
+    {
+      "type": "row",
+      "title": "Traces and logs",
+      "collapsed": false,
+      "panels": [],
+      "id": 19,
+      "gridPos": {
+        "x": 0,
+        "y": 40,
+        "w": 24,
+        "h": 1
+      }
     },
     {
       "type": "table",
       "title": "Recent submissions",
       "description": "Each one's trace: the request, its workflow, every activity, rule and SQL statement. Click a trace id to open it.",
-      "id": 7,
-      "gridPos": { "x": 0, "y": 18, "w": 24, "h": 9 },
-      "datasource": { "type": "tempo", "uid": "tempo" },
+      "datasource": {
+        "type": "tempo",
+        "uid": "tempo"
+      },
       "targets": [
         {
           "refId": "A",
-          "datasource": { "type": "tempo", "uid": "tempo" },
+          "datasource": {
+            "type": "tempo",
+            "uid": "tempo"
+          },
           "queryType": "traceql",
           "query": "{ resource.service.name = \"FunBooksAndVideos.Api\" && span.http.route = \"v1/purchase-orders\" && span.http.request.method = \"POST\" }",
           "limit": 20,
           "tableType": "traces"
         }
-      ]
+      ],
+      "id": 20,
+      "gridPos": {
+        "x": 0,
+        "y": 41,
+        "w": 24,
+        "h": 9
+      }
+    },
+    {
+      "type": "logs",
+      "title": "Warnings and errors",
+      "description": "From the API and the workers, newest first. An activity's failure is logged as a warning, and is retried.",
+      "datasource": {
+        "type": "loki",
+        "uid": "loki"
+      },
+      "options": {
+        "showTime": true,
+        "wrapLogMessage": true,
+        "enableLogDetails": true,
+        "sortOrder": "Descending",
+        "dedupStrategy": "none"
+      },
+      "targets": [
+        {
+          "refId": "A",
+          "datasource": {
+            "type": "loki",
+            "uid": "loki"
+          },
+          "expr": "{service_name=~\"FunBooksAndVideos.*\"} | severity_text=~\"Warning|Error|Critical\""
+        }
+      ],
+      "id": 21,
+      "gridPos": {
+        "x": 0,
+        "y": 50,
+        "w": 24,
+        "h": 10
+      }
     }
   ]
 }

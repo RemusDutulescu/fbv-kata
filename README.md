@@ -71,15 +71,15 @@ it, then:
 
 A retried submission joins the same workflow instead of starting a new one.
 
-**The Grafana dashboard** has five panels:
+**The Grafana dashboard**, row by row:
 
-| Panel | Shows |
+| Row | Shows |
 | --- | --- |
-| *Submissions a minute, by status* | The submissions, by the status the API answered ([The API](#the-api)). |
-| *Submission latency, p95* | How long a client waits, BR1's activation included. |
-| *Activities a second, per worker* | One line per worker replica. |
-| *Waiting for a worker, p95* | How long a workflow task waits in Temporal's queue. It rises when the workers fall behind, and can't read above 10 s, the histogram's top bucket. |
-| *Recent submissions* | A trace per order, from the POST through the workflow on whichever worker ran it, down to each rule and SQL statement. On the homelab, a trace also links to its logs and its service map. |
+| *At a glance* | Over the time range: the orders accepted, replayed, refused, not confirmed and rate-limited, by the status the API answered ([The API](#the-api)), and the orders completed. *Not confirmed* turns orange above 0: the workers or Temporal fell behind. |
+| *API* | Submissions a minute, by status. Beside them, the p95 time to the answer, which includes BR1's activation, and to the workflow's last step. The gap between the two is the work done after the client heard back. |
+| *Fulfilment* | Each activity's rate, and its failed attempts. Every failure is retried ([ADR 4](docs/adr/0004-forward-recovery-no-compensation.md)). Two orders racing for one customer fail `ActivateMembership` once, by design ([ADR 5](docs/adr/0005-optimistic-concurrency-for-memberships.md)). |
+| *Workers* | Activities a second per worker, and how long a workflow task waits for one: it rises when the workers fall behind, and can't read above 10 s, the histogram's top bucket. Then CPU and memory per replica, the API's included. |
+| *Traces and logs* | A trace per order, from the POST through the workflow on whichever worker ran it, down to each rule and SQL statement. On the homelab, a trace also links to its logs and its service map. Below, the warnings and errors, newest first. |
 
 ### Under load
 
@@ -90,8 +90,8 @@ docker compose run --rm k6
 docker compose up -d --scale worker=3   # in a second terminal
 ```
 
-*Activities a second, per worker* goes from two lines to three, each taking an equal share. `-e RATE=50` sets
-another rate.
+*Activities a second, per worker* goes from two lines to three, each taking an equal share, and *CPU, per replica*
+shows the new worker taking its part. `-e RATE=50` sets another rate.
 
 The Temporal dev server caps the throughput. Locally the cap is about 50 orders a second: more workers spread the
 work but don't raise the cap. Past it, the API answers 202 and then 503, as documented. On the homelab, the server's
