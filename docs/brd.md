@@ -98,5 +98,5 @@ From the first message, with what each became:
   runs.
 - The pull request adding a third rule wasn't picked. A test that plugs a new rule into the processor shows the same
   thing.
-- The hosting changed at [gate 5](rfc-001-implementation-plan.md#gate-5): the live demo runs on the owner's homelab,
-  and the Azure deployment stays as code.
+- The hosting changed at [gate 5](rfc-001-implementation-plan.md#gate-5): the live demo runs on the owner's homelab.
+  The Azure deployment stayed as code until the owner removed it on 2026-11-06, with the Postman collection.

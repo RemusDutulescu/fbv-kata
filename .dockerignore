@@ -6,6 +6,4 @@
 .vscode/
 .idea/
 docs/
-infra/
-postman/
 tests/

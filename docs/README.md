@@ -13,5 +13,8 @@ process are the [ADRs](adr/).
 | [4](rfc-001-implementation-plan.md#gate-4) | Two independent reviews of the build, each finding checked against the code | 2026-11-05 11:41 | Every finding fixed. At 12:29, the app's settings bound to validated classes. |
 | [5](rfc-001-implementation-plan.md#gate-5) | Three more reviews, and a redesign the owner asked for while they ran | 2026-11-05 13:38 | Three tiers under two hosts, with the worker scaling on its own. MVC controllers, a JSON converter per class hierarchy, and Grafana for traces, metrics and logs. The live demo on the owner's homelab, with the Azure deployment kept as code. Every finding fixed. |
 
+On 2026-11-06, the owner removed the Azure deployment and the Postman collection
+([after gate 5](rfc-001-implementation-plan.md#after-gate-5)).
+
 Times are local (UTC+2), as in the git log. The documents were written up on 2026-11-05 from the session's record.
 Each is dated to its proposal, and quotes the owner as given, with typos fixed.

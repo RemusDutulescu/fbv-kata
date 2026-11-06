@@ -14,10 +14,11 @@ it and the code disagree, **the code is right**. This table records the known dr
 | Options checked by `ValidateOnStart`, with defaults in code (plan) | `AddRequiredOptions`: a missing section or value stops the app at startup. The values live in appsettings. | Gate 4 |
 | Pattern names (plan): "orchestrated saga", Visitor "not used", Liskov substitution | A process manager, Visitor-style double dispatch, and polymorphism without type checks. | Gate 4 |
 | The deploy identity is Contributor on the resource group (plan) | Contributor on the container apps only. | Gate 4 |
-| Minimal APIs, in an Api project that also hosts the worker | MVC controllers, each action declaring its route, rate limit, validation and every status it answers. The worker is a host of its own, and the code is in three tiers ([ADR 8](adr/0008-three-tiers-and-a-worker-host-of-its-own.md)). | Gate 5 |
+| Minimal APIs, in an Api project that also hosts the worker | MVC controllers, each action declaring its route, rate limit, validation and every status it answers. The worker is a host of its own, and the code is in three tiers ([ADR 7](adr/0007-three-tiers-and-a-worker-host-of-its-own.md)). | Gate 5 |
 | Traces in the Aspire dashboard locally | Traces, metrics and logs in Grafana (`grafana/otel-lgtm`), with a provisioned dashboard and a k6 load script. | Gate 5 |
-| Live on Azure and Temporal Cloud | Live on the owner's homelab, from [deploy/compose.yml](../deploy/compose.yml). The Azure deployment is kept as code, not applied. | Gate 5 |
-| CodeQL, and CI on every push | CodeQL isn't set up: step 1 of the README's deploy steps turns on its default setup after the first push. CI runs on `main` and on pull requests. | The build |
+| Live on Azure and Temporal Cloud, built by Terraform | Live on the owner's homelab, from [deploy/compose.yml](../deploy/compose.yml). The Azure deployment was kept as code, never applied, and removed on 2026-11-06. | Gate 5 |
+| A Postman collection, run by the deploy pipeline | Removed on 2026-11-06. The API reference (Scalar) is where to try the API, and the integration tests assert every answer. | After gate 5 |
+| CodeQL, and CI on every push | CodeQL's default setup, turned on in the repository's settings. CI runs on `main` and on pull requests, and pushes the images from `main`. | The build |
 
 **Author:** Claude (with Remus Dutulescu)
 **Date:** 2026-11-04

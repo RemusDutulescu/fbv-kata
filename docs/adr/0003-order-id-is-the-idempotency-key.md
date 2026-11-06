@@ -22,8 +22,8 @@ The order id is the idempotency key, enforced at three levels in
    - It is started with `IdConflictPolicy.UseExisting`, so a concurrent duplicate joins the running workflow.
    - `IdReusePolicy.RejectDuplicate` means a finished workflow never runs again.
    - The update id `submit-{id}` gives every duplicate the same answer, even after the workflow has finished.
-   - Both hold while Temporal keeps the workflow's history: the namespace's retention, seven days in Temporal Cloud.
-     After that, the SQL fast path still answers for a fulfilled order.
+   - Both hold while Temporal keeps the workflow's history, for the namespace's retention. After that, the SQL fast
+     path still answers for a fulfilled order.
 3. **Primary keys.** Orders and slips are keyed by the order id, and each activity checks before it inserts, so a
    retried activity changes nothing.
 

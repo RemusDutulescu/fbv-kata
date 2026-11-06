@@ -43,5 +43,4 @@ including per-type rules for the polymorphic lines and the decimal precision of 
   take custom wording.
 - A 256 KB body limit caps what one request can cost. The rate limit (30 submissions a minute, configurable) is one
   window shared by every client. It caps what the service can be made to spend, not who gets a turn. On the
-  homelab, which spends no Temporal Cloud actions, the window is 3000 a minute, and Cloudflare limits each address
-  in front of it.
+  homelab, the window is 3000 a minute, and Cloudflare limits each address in front of it.

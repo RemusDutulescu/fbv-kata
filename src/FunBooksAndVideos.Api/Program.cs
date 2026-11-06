@@ -65,7 +65,7 @@ builder.Services.AddApiDocs();
 
 var app = builder.Build();
 
-// Migrating at startup needs the app's identity to be the SQL admin (ADR 7).
+// Migrating at startup needs the app to sign in to SQL as an admin (the README's limits).
 await using (var scope = app.Services.CreateAsyncScope())
     await scope.ServiceProvider.GetRequiredService<ShopDbContext>().Database.MigrateAsync();
 

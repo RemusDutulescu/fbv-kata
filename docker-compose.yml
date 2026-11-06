@@ -1,5 +1,4 @@
-# Local development stack. Every credential here is a laptop-only throwaway:
-# the Azure deployment authenticates with a managed identity and has no SQL password at all.
+# Local development stack. Every credential here is a laptop-only throwaway.
 
 # What the api and the worker share.
 x-app-environment: &app-environment
@@ -55,7 +54,7 @@ services:
       - "5080:8080"   # API, with the docs at /scalar/
     environment:
       <<: *app-environment
-      # No Temporal Cloud bill to protect locally (ADR 6), so the limit only has to stay out of the load test's way.
+      # Locally, the limit (ADR 6) only has to stay out of the load test's way.
       RateLimiting__SubmissionsPerMinute: "10000"
     depends_on:
       sqlserver:

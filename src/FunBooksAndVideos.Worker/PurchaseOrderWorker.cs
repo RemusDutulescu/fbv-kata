@@ -9,7 +9,7 @@ namespace FunBooksAndVideos.Worker;
 
 /// <summary>
 /// The worker host: it runs every order's workflow and activities, and nothing else. It deploys and scales apart from
-/// the API, so more replicas mean more orders processed at once (ADR 8).
+/// the API, so more replicas mean more orders processed at once (ADR 7).
 /// </summary>
 public static class PurchaseOrderWorker
 {

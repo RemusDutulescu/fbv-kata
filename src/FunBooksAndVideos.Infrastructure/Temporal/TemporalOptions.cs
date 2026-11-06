@@ -15,7 +15,4 @@ public sealed class TemporalOptions
 
     [Required]
     public required string TaskQueue { get; init; }
-
-    /// <summary>Temporal Cloud API key. When set, the connection uses TLS. Supplied as a secret, never committed.</summary>
-    public string? ApiKey { get; init; }
 }

@@ -1,6 +1,6 @@
 # 1. Temporal orchestrates fulfilment
 
-Status: accepted, 2026-11-05. Its hosting is superseded by [ADR 8](0008-three-tiers-and-a-worker-host-of-its-own.md).
+Status: accepted, 2026-11-05. Its hosting is superseded by [ADR 7](0007-three-tiers-and-a-worker-host-of-its-own.md).
 
 ## Context
 
@@ -19,7 +19,7 @@ changed rule would change what an in-flight order decides on replay, and Tempora
 activity result, the decision is recorded once and replays read it back. A test replays a committed history, so a
 non-deterministic change fails CI rather than production.
 
-The worker was hosted in the API process, so that there was one thing to deploy, until ADR 8 gave it a host of its
+The worker was hosted in the API process, so that there was one thing to deploy, until ADR 7 gave it a host of its
 own.
 
 ## Alternatives
@@ -32,7 +32,6 @@ own.
 ## Consequences
 
 - Durable state, retries and an operator's view (the Temporal UI) come with it.
-- Temporal becomes a runtime dependency: Temporal Cloud in Azure, and the dev server locally, in the tests and on the
-  homelab.
+- Temporal becomes a runtime dependency: the dev server locally, in the tests and on the homelab.
 - Workflow code follows determinism rules, and a change to the workflow's shape needs Temporal's versioning once
   orders are in flight.

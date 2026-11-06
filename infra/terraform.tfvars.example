@@ -1,3 +1,0 @@
-# Copy to terraform.tfvars (gitignored) and fill in: README, deploy step 3.
-image_prefix      = "ghcr.io/<owner>/<repo>" # all lowercase
-github_repository = "<owner>@<owner-id>/<repo>@<repo-id>"

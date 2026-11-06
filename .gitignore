@@ -480,13 +480,3 @@ $RECYCLE.BIN/
 
 # Vim temporary swap files
 *.swp
-
-# Terraform: state, plan and variable files can contain secrets; the lock file is committed on purpose
-.terraform/
-*.tfstate
-*.tfstate.*
-*.tfvars
-!*.tfvars.example
-*.tfplan
-tfplan
-crash.log

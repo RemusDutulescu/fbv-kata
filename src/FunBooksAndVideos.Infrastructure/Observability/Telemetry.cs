@@ -1,6 +1,5 @@
 using System.Diagnostics;
 using System.Diagnostics.Metrics;
-using Azure.Monitor.OpenTelemetry.Exporter;
 using Microsoft.Extensions.Configuration;
 using Microsoft.Extensions.DependencyInjection;
 using OpenTelemetry;
@@ -37,17 +36,8 @@ public static class Telemetry
             .WithMetrics(metrics => metrics.AddMeter(TemporalMeter.Name))
             .WithLogging(configureBuilder: null, configureOptions: logging => logging.IncludeFormattedMessage = true);
 
-        // Azure exports to Application Insights; locally, docker compose runs Grafana's LGTM stack on OTLP.
-        if (configuration["APPLICATIONINSIGHTS_CONNECTION_STRING"] is { Length: > 0 } connectionString)
-            telemetry.UseAzureMonitorExporter(azure =>
-            {
-                azure.ConnectionString = connectionString;
-
-                // Every trace is kept, not the exporter's default of five a second; sample when ingestion starts to cost.
-                azure.SamplingRatio = 1;
-                azure.TracesPerSecond = null;
-            });
-        else if (configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] is { Length: > 0 })
+        // To Grafana's LGTM stack locally, and to the host's collector on a host; with no endpoint, nothing is exported.
+        if (configuration["OTEL_EXPORTER_OTLP_ENDPOINT"] is { Length: > 0 })
             telemetry.UseOtlpExporter();
 
         return telemetry;

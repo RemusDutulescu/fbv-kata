@@ -108,17 +108,6 @@ dotnet test
 This needs Docker. The domain tests need no infrastructure. The integration tests start a real SQL Server
 (Testcontainers) and a Temporal dev server, then drive the API and a worker, each composed as in its host.
 
-The [Postman collection](postman/) runs the brief's example and the edge cases, and asserts every response. Import it
-with the `local` environment, or run it headless:
-
-```shell
-docker run --rm --add-host host.docker.internal:host-gateway -v "$PWD/postman:/etc/newman" postman/newman:6.1.3-alpine \
-  run FunBooksAndVideos.postman_collection.json -e local.postman_environment.json \
-  --env-var baseUrl=http://host.docker.internal:5080
-```
-
-To run it against the live demo, set `baseUrl=https://dev-funbooks.remusd.info` instead.
-
 ## How it works
 
 ```mermaid
@@ -160,7 +149,7 @@ sequenceDiagram
   409.
 - **The API and the worker share only Temporal and the database.** The API starts workflows and reads SQL. The
   workers run the workflows and activities, and scale on their own
-  ([ADR 8](docs/adr/0008-three-tiers-and-a-worker-host-of-its-own.md)).
+  ([ADR 7](docs/adr/0007-three-tiers-and-a-worker-host-of-its-own.md)).
 
 ## The API
 
@@ -258,8 +247,7 @@ Left out on purpose:
 4. [Forward recovery, no compensation](docs/adr/0004-forward-recovery-no-compensation.md)
 5. [Optimistic concurrency for memberships](docs/adr/0005-optimistic-concurrency-for-memberships.md)
 6. [Validation in layers](docs/adr/0006-validation-in-layers.md)
-7. [Azure Container Apps, Azure SQL and Temporal Cloud](docs/adr/0007-azure-container-apps-sql-and-temporal-cloud.md)
-8. [Three tiers, and a worker host of its own](docs/adr/0008-three-tiers-and-a-worker-host-of-its-own.md)
+7. [Three tiers, and a worker host of its own](docs/adr/0007-three-tiers-and-a-worker-host-of-its-own.md)
 
 [How they were reached](docs/README.md): a BRD, an RFC and a plan, each ending at a gate where the owner answered,
 then the build and its reviews.
@@ -285,53 +273,16 @@ Each shortcut is deliberate, and each has a way past it.
   the signed-in customer. Reading an order by id would check that the caller owns it.
 - **One API replica.** More replicas could share the load, and EF Core locks the startup migration. But the rate
   limit is held in memory, so each replica would apply it separately. Move it to a gateway first. Workers have no
-  such limit: they scale with `worker_replicas` in Azure, or `--scale worker=N` on a host.
-- **The apps sign in to SQL as an admin**, so that the API can migrate at startup: as their managed identity in
-  Azure, and as `sa` on the homelab. An EF migration bundle in the pipeline would leave both apps with data rights
-  only.
-- **Azure SQL's public endpoint.** Azure services can reach the server, though signing in still needs Entra. VNet
-  integration with a private endpoint closes it.
-- **Temporal's dev server on the homelab.** It keeps its state in SQLite on a volume, and caps the throughput (see
-  [Under load](#under-load)). A Temporal server with its own database would raise the cap, as would Temporal Cloud,
-  which the Azure setup uses.
+  such limit: they scale with `--scale worker=N`.
+- **The apps sign in to SQL as `sa`**, so that the API can migrate at startup. Running an EF migration bundle before
+  the deploy would leave both apps with data rights only.
+- **Temporal's dev server.** It keeps its state in SQLite on a volume, and caps the throughput (see
+  [Under load](#under-load)). A Temporal server with its own database, or Temporal Cloud, would raise the cap.
 - **Every trace is kept.** Add sampling once ingestion starts to cost.
 - **Unlimited activity retries** ([ADR 4](docs/adr/0004-forward-recovery-no-compensation.md)). Alert on the retry
   counts.
 - **Workflow changes** need Temporal's versioning once orders are in flight
   ([ADR 1](docs/adr/0001-temporal-orchestrates-fulfilment.md)).
-- **Local Terraform state.** It holds the Temporal API key. Move it to a storage-account backend with locking before a
-  second person runs `apply`.
-
-## Deploy it to Azure
-
-Container Apps runs the API and the worker as two apps, Azure SQL holds the data, and Temporal Cloud runs the
-workflows. [Terraform](infra/) creates all three. The [Deploy workflow](.github/workflows/deploy.yml) ships every
-commit that passes CI on `main`, then runs the Postman collection against it. None of this has been applied:
-`terraform validate` and actionlint pass, and the live demo runs on the homelab instead.
-
-1. Push the repository to GitHub. Turn on CodeQL's default setup and secret scanning with push protection
-   (*Settings*, *Advanced Security*). CI runs, and Deploy pushes two images, `ghcr.io/<owner>/<repo>-api` and
-   `-worker`. Its Azure steps are skipped until step 4.
-2. Make both packages public (package settings, *Change visibility*), so that Container Apps can pull them without
-   credentials.
-3. Create the infrastructure. You need the Azure CLI, signed in as an Owner or User Access Administrator of the
-   subscription, who may also register Entra applications: Terraform gives the deploy workflow a role and an app
-   registration. You also need a Temporal Cloud account API key. In `terraform.tfvars`, `image_prefix` is all
-   lowercase, and `github_repository` is the repository as GitHub's OIDC tokens name it:
-   `gh api repos/<owner>/<repo> --jq '"\(.owner.login)@\(.owner.id)/\(.name)@\(.id)"'`.
-
-   ```shell
-   az login
-   export TEMPORAL_CLOUD_API_KEY=<account API key>
-   cd infra
-   cp terraform.tfvars.example terraform.tfvars   # then fill it in
-   terraform init
-   terraform apply
-   ```
-
-4. Copy `terraform output github_variables` into the repository's Actions variables. These are identifiers, not
-   secrets: Deploy signs in to Azure with OpenID Connect.
-5. Re-run Deploy, or push again. `terraform output api_url` gives the API's address.
 
 ## Layout
 
@@ -346,11 +297,9 @@ src/FunBooksAndVideos.Infrastructure      SQL Server through EF Core, the domain
 src/FunBooksAndVideos.Domain              the model, the rules and the commands: no packages, no I/O
 tests/FunBooksAndVideos.Domain.Tests      rules and invariants, without infrastructure
 tests/FunBooksAndVideos.IntegrationTests  workflow, replay, persistence, JSON, HTTP and tracing, against real SQL Server and Temporal
-infra/                                    Terraform: Azure, Entra ID and Temporal Cloud
 deploy/                                   compose for a host of its own, behind its proxy (the homelab's); its header lists what the host sets
 observability/                            the Grafana dashboard
 load/                                     the k6 load script
-postman/                                  the collection and its local environment
 docs/                                     how it was built: the BRD, the RFC, the plan and their gates
 docs/adr/                                 the decisions above
 ```

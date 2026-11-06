@@ -1,4 +1,4 @@
-# 8. Three tiers, and a worker host of its own
+# 7. Three tiers, and a worker host of its own
 
 Status: accepted, 2026-11-05. Supersedes [ADR 1](0001-temporal-orchestrates-fulfilment.md)'s hosting: the worker no
 longer runs in the API process.
@@ -14,8 +14,7 @@ persistence, Temporal and telemetry side by side.
 The worker is a host of its own, [`FunBooksAndVideos.Worker`](../../src/FunBooksAndVideos.Worker/PurchaseOrderWorker.cs):
 a .NET worker service that polls Temporal and runs every order's workflow and activities. The API starts workflows and
 reads SQL, and runs neither. The two share only Temporal's task queue and the database, so each is deployed and scaled
-on its own: `docker compose up --scale worker=3` locally, and `worker_replicas` in Azure, where the worker is a second
-container app with no ingress.
+on its own: `docker compose up --scale worker=3`.
 
 Under the two hosts, the code is in three tiers, each depending only on the one below it:
 
@@ -33,12 +32,12 @@ the rules.
 
 ## Consequences
 
-- There are two images, built from one Dockerfile. Deploy rolls out the worker first, because it has to run whatever
-  the new API starts. A schema change, though, reaches SQL only when the new API starts and migrates it: until then,
+- There are two images, built from one Dockerfile. A deploy should roll out the worker first, because it has to run
+  whatever the new API starts. A schema change, though, reaches SQL only when the new API starts and migrates it: until then,
   any activity that needs it fails, and Temporal retries it (ADR 4).
 - Workers scale without touching the API. The dashboard's *Activities a second, per worker* shows the work spreading
   across them.
 - The worker image is the plain .NET runtime, so nothing the worker references may bring in ASP.NET Core.
 - Each host reads the task queue from its own appsettings.json. The tests run the worker with its real settings, so the
   two can't drift apart unnoticed.
-- The hosts share one managed identity, so the worker is a SQL admin too: ADR 7's shortcut covers both.
+- Both hosts sign in to SQL as the same admin: the README's limits cover both.

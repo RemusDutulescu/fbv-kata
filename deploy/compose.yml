@@ -112,7 +112,7 @@ services:
     tmpfs: [/tmp]
     environment:
       <<: *app-environment
-      # A shared host takes more than the 30 a minute that protect the Temporal Cloud bill (ADR 6).
+      # The default of 30 a minute (ADR 6) would turn the load test away; the host's edge limits each address.
       RateLimiting__SubmissionsPerMinute: "3000"
       # The proxy in front says the visitor came by https.
       ASPNETCORE_FORWARDEDHEADERS_ENABLED: "true"

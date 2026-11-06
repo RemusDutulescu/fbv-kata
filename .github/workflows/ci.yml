@@ -12,6 +12,9 @@ jobs:
   build-and-test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
+    permissions:
+      contents: read
+      packages: write # pushes the images, from main only
     steps:
       # Actions are pinned to a commit, not a movable tag.
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
@@ -25,5 +28,20 @@ jobs:
       - run: dotnet test --configuration Release --no-build
 
       # The Dockerfile names project files one by one, so a new project reference breaks the images, not the tests.
-      - run: docker build --target api .
-      - run: docker build --target worker .
+      - name: Build both images
+        run: |
+          prefix="ghcr.io/${GITHUB_REPOSITORY,,}"
+          for app in api worker; do
+            docker build --target "$app" --label "org.opencontainers.image.source=https://github.com/$GITHUB_REPOSITORY" \
+              --tag "$prefix-$app:$GITHUB_SHA" --tag "$prefix-$app:latest" .
+          done
+
+      # A host runs the images of one tested commit, by its full SHA (deploy/compose.yml).
+      - name: Push both images to GitHub Container Registry
+        if: github.event_name == 'push'
+        env:
+          TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          prefix="ghcr.io/${GITHUB_REPOSITORY,,}"
+          echo "$TOKEN" | docker login ghcr.io --username "$GITHUB_ACTOR" --password-stdin
+          for app in api worker; do docker push --all-tags "$prefix-$app"; done

@@ -43,11 +43,6 @@ public static class TemporalServiceCollectionExtensions
 
             // Carries the trace context in workflow and activity headers.
             client.Interceptors = [new TracingInterceptor()];
-            if (!string.IsNullOrEmpty(temporal.ApiKey))
-            {
-                client.ApiKey = temporal.ApiKey;
-                client.Tls = new();
-            }
         });
 
         return temporal;

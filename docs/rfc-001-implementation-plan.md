@@ -1,8 +1,8 @@
 # RFC-001 — Implementation plan
 
-**Status:** Approved at gate 3 (2026-11-05). All twelve steps are done, and gate 4 reviewed them. The Azure steps, 10
-and 11, pass `terraform validate` and actionlint but have not been applied. The live demo runs on the owner's homelab
-instead ([after gate 5](#after-gate-5)).
+**Status:** Approved at gate 3 (2026-11-05). All twelve steps are done, and gate 4 reviewed them. Steps 8, 10 and 11
+(Postman, Terraform and the deploy pipeline) were removed on 2026-11-06, never applied: the live demo runs on the
+owner's homelab ([after gate 5](#after-gate-5)).
 **Author:** Claude (with Remus Dutulescu)
 **Date:** 2026-11-04
 **Relates to:** [RFC-001](rfc-001-purchase-order-processing.md)
@@ -37,7 +37,7 @@ One commit each. Steps 1 to 7 stand on their own. If time ran short, 10 and 11 w
 - **Edge cases:** the same order again is a 200 with the same body. Other contents under the same id are a 409. Book
   Club and Video Club ordered at once end as Premium.
 - **In Azure:** Newman green after the deploy, the same trace in Application Insights, and the workflow in the
-  Temporal Cloud UI. This has not been run (see the status).
+  Temporal Cloud UI. Never run, and removed with the Azure deployment.
 
 ## Gate 3
 
@@ -192,3 +192,8 @@ The homelab's own repository deploys the app. Three commits here made that possi
 
 On the homelab, the dev server keeps up with about 20 orders a second, and only with SQLite in WAL mode: the default
 journal managed about 2.
+
+On 2026-11-06, with no Azure demo planned, the owner removed the Azure deployment: the Terraform, the deploy workflow,
+ADR 7, the Application Insights exporter and the Temporal Cloud API key. CI now pushes the images the homelab runs.
+The Postman collection went too: Scalar's API reference is where to try the API. The ADR on three tiers became
+ADR 7.
