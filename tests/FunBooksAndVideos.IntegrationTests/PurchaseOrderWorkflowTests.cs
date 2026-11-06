@@ -130,6 +130,22 @@ public sealed class PurchaseOrderWorkflowTests(AppFixture fixture)
     }
 
     [Fact]
+    public async Task A_namespace_temporal_cannot_find_leaves_a_new_order_unconfirmed()
+    {
+        // Under load, Temporal's dev server answers NotFound for its own namespace for a moment; one it never had gets the
+        // same answer.
+        var elsewhere = await TemporalClient.ConnectAsync(new(fixture.Temporal.Connection.Options.TargetHost!)
+        {
+            Namespace = "no-such-namespace",
+            DataConverter = TemporalServiceCollectionExtensions.TemporalDataConverter,
+        });
+
+        Assert.Equal(
+            SubmissionOutcome.Unconfirmed,
+            await SubmitThroughOrderSubmitterAsync(NewOrder(), "no-workers", TimeSpan.FromSeconds(10), elsewhere));
+    }
+
+    [Fact]
     public async Task A_temporal_lost_after_connecting_leaves_a_stored_order_pending()
     {
         // The client stops retrying after a second, not ten, so the test is quick; the exception is the same.

@@ -60,10 +60,16 @@ public sealed class OrderSubmitter(
         };
     }
 
-    /// <summary>No answer in time, Temporal out of reach or throttling, or a lazy client that has never connected.</summary>
+    /// <summary>
+    /// No answer in time, Temporal out of reach or throttling, its namespace not found (Temporal's dev server says so for
+    /// a moment under load), or a lazy client that has never connected.
+    /// </summary>
     private bool IsUnanswered(Exception e) =>
         e is RpcTimeoutOrCanceledException
-            or RpcException { Code: RpcException.StatusCode.Unavailable or RpcException.StatusCode.ResourceExhausted }
+            or RpcException
+            {
+                Code: RpcException.StatusCode.Unavailable or RpcException.StatusCode.ResourceExhausted or RpcException.StatusCode.NotFound,
+            }
         || (e is InvalidOperationException && !temporal.Connection.IsConnected);
 
     private Task<PurchaseOrderRecord?> StoredAsync(PurchaseOrderId id, CancellationToken cancellationToken) =>
